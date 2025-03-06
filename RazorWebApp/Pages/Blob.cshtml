@@ -5,22 +5,34 @@
 }
 <h1>@ViewData["Title"]</h1>
 
-<p><b>Get image from stream</b></p>
+<cache expires-after="@TimeSpan.FromSeconds(120)">
+    Current Time Inside Cache Tag Helper: @DateTime.Now
+</cache>
+
+<hr />
+
+<h5>
+    Get image from stream
+</h5>
 
 <img src="/stream-image/web/5ktwur25ot3d1.jpeg" alt="blob image" />
 <br /><br />
 
-<p><b>Get text content from stream (server-side)</b></p>
+<h5>
+    Get text content from stream (server-side)
+</h5>
 
 @Html.Raw(Model.HtmlContent)
 
-<p><b>Get text content from stream (client-side)</b></p>
+<h5>
+    Get text content from stream (client-side)
+</h5>
 
 <div id="htmlContent">loading...</div>
 
 @section Scripts{
-    <script>
 
+    <script>
         document.addEventListener('DOMContentLoaded', domContentLoadedHandler);
 
         async function domContentLoadedHandler() {
