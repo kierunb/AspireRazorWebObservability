@@ -11,7 +11,7 @@ public static class BlobEndpoint
 
         app.MapGet(
             "/stream-image/{containerName}/{blobName}",
-            [OutputCache] async (
+            [OutputCache(PolicyName = "Expire20")] async (
                 string blobName,
                 string containerName,
                 BlobServiceClient blobServiceClient,
@@ -21,6 +21,7 @@ public static class BlobEndpoint
                 var blobContainerClient = blobServiceClient.GetBlobContainerClient(containerName);
                 var blobClient = blobContainerClient.GetBlobClient(blobName);
 
+                
                 app.Logger.LogInformation(
                     "Fetching blob name: {blobName} from container: {container}",
                     blobName,
@@ -36,7 +37,7 @@ public static class BlobEndpoint
 
         app.MapGet(
             "/stream-html/{containerName}/{blobName}",
-            async (
+            [OutputCache] async (
                 string blobName,
                 string containerName,
                 BlobServiceClient blobServiceClient,

@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.OutputCaching;
 
 namespace RazorWebApp.Pages;
 
@@ -17,10 +18,12 @@ public class BlobModel : PageModel
         _httpClientFactory = httpClientFactory;
     }
 
+
     public async Task OnGet()
     {
         var httpClient = _httpClientFactory.CreateClient("blobs");
         HtmlContent = await httpClient.GetStringAsync("/stream-html/web/html-part.html");
+
     }
 }
 
