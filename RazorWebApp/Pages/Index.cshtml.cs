@@ -8,7 +8,7 @@ public class IndexModel : PageModel
     private readonly ILogger<IndexModel> _logger;
     private readonly AppMetricsService _appMetrics;
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly Random _random = new();
+    private readonly Random _random = Random.Shared;
 
     public IndexModel(
         ILogger<IndexModel> logger,
