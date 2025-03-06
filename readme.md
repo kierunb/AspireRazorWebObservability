@@ -55,28 +55,65 @@ dotnet user-secrets set "ConnectionStrings:StorageAccount" ""
 ### References
 
 #### OpenTelemetry
-https://learn.microsoft.com/en-us/azure/azure-monitor/app/opentelemetry-enable?tabs=aspnetcore
-https://learn.microsoft.com/en-us/azure/azure-monitor/app/opentelemetry-configuration?tabs=aspnetcore
+
+- https://learn.microsoft.com/en-us/azure/azure-monitor/app/opentelemetry-enable?tabs=aspnetcore
+- https://learn.microsoft.com/en-us/azure/azure-monitor/app/opentelemetry-configuration?tabs=aspnetcore
 
 #### .NET Diagnostics
-https://learn.microsoft.com/en-us/dotnet/core/diagnostics/
+
+- https://learn.microsoft.com/en-us/dotnet/core/diagnostics/
 
 #### Minimal APIs
-https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis/responses?view=aspnetcore-9.0
-https://www.mikesdotnetting.com/article/358/using-minimal-apis-in-asp-net-core-razor-pages
-https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis/responses?view=aspnetcore-9.0
+
+- https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis/responses?view=aspnetcore-9.0
+- https://www.mikesdotnetting.com/article/358/using-minimal-apis-in-asp-net-core-razor-pages
+- https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis/responses?view=aspnetcore-9.0
 
 #### Caching
-https://learn.microsoft.com/en-us/aspnet/core/performance/caching/output?view=aspnetcore-9.0
-https://learn.microsoft.com/en-us/aspnet/core/performance/caching/response?view=aspnetcore-9.0
+
+- https://learn.microsoft.com/en-us/aspnet/core/performance/caching/overview?view=aspnetcore-9.0#output-caching
+- https://learn.microsoft.com/en-us/aspnet/core/performance/caching/output?view=aspnetcore-9.0
+- https://learn.microsoft.com/en-us/aspnet/core/performance/caching/response?view=aspnetcore-9.0
 
 #### Base url
-https://freedium.cfd/https://medium.com/it-dead-inside/accessing-the-asp-net-core-base-url-so-many-ways-f07f6ee58f68
+
+- https://freedium.cfd/https://medium.com/it-dead-inside/accessing-the-asp-net-core-base-url-so-many-ways-f07f6ee58f68
 
 #### Streams
-https://medium.com/@dmytro.misik/net-streams-f3e9801b7ef0
+
+- https://medium.com/@dmytro.misik/net-streams-f3e9801b7ef0
 
 #### Azure FrontDoor/CDN
-https://learn.microsoft.com/en-us/azure/frontdoor/front-door-overview
-https://learn.microsoft.com/en-us/azure/frontdoor/front-door-caching?pivots=front-door-standard-premium
-https://learn.microsoft.com/en-us/azure/architecture/web-apps/guides/enterprise-app-patterns/modern-web-app/dotnet/guidance
+
+- https://learn.microsoft.com/en-us/azure/frontdoor/front-door-overview
+- https://learn.microsoft.com/en-us/azure/frontdoor/front-door-caching?pivots=front-door-standard-premium
+- https://learn.microsoft.com/en-us/azure/architecture/web-apps/guides/enterprise-app-patterns/modern-web-app/dotnet/guidance
+
+### Samples
+
+```csharp
+// GET /stream-video/videos/earth.mp4
+app.MapGet("/stream-video/{containerName}/{blobName}",
+	 async (HttpContext http, CancellationToken token, string blobName, string containerName) =>
+{
+	var conStr = builder.Configuration["blogConStr"];
+	BlobContainerClient blobContainerClient = new BlobContainerClient(conStr, containerName);
+	BlobClient blobClient = blobContainerClient.GetBlobClient(blobName);
+	
+	var properties = await blobClient.GetPropertiesAsync(cancellationToken: token);
+	
+	DateTimeOffset lastModified = properties.Value.LastModified;
+	long length = properties.Value.ContentLength;
+	
+	long etagHash = lastModified.ToFileTime() ^ length;
+	var entityTag = new EntityTagHeaderValue('\"' + Convert.ToString(etagHash, 16) + '\"');
+	
+	http.Response.Headers.CacheControl = $"public,max-age={TimeSpan.FromHours(24).TotalSeconds}";
+
+	return Results.Stream(await blobClient.OpenReadAsync(cancellationToken: token), 
+		contentType: "video/mp4",
+		lastModified: lastModified,
+		entityTag: entityTag,
+		enableRangeProcessing: true);
+});
+```
