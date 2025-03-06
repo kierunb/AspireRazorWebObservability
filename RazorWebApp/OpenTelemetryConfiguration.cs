@@ -11,13 +11,13 @@ public static class OpenTelemetryConfiguration
 {
     public static void UseOpenTelemetry(
         this WebApplicationBuilder builder,
-        bool enableAzureMonitor = false
+        bool enableAzureMonitor = false,
+        bool enableAspireDashboard = false
     )
     {
         var serviceName = builder.Configuration["OpenTelemetry:ServiceName"]!;
         var serviceVersion = builder.Configuration["OpenTelemetry:ServiceVersion"]!;
         var aspireOltpEndpoint = builder.Configuration["OpenTelemetry:AspireOtlpEndpoint"]!;
-        var seqOltpEndpoint = builder.Configuration["OpenTelemetry:SeqOtlpEndpoint"]!;
 
         var resourceAttributes = new Dictionary<string, object>
         {
@@ -71,7 +71,8 @@ public static class OpenTelemetryConfiguration
                     //config.SamplingRatio = 0.1F;
                 });
         }
-        else
+        
+        if (enableAspireDashboard)
         {
             // jaeger, aspire dashboard standalone, otel collector etc.
             builder

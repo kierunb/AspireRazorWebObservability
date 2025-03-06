@@ -1,0 +1,38 @@
+﻿@page
+@model BlobModel
+@{
+    ViewData["Title"] = "Blob Stream Demo";
+}
+<h1>@ViewData["Title"]</h1>
+
+<p><b>Get image from stream</b></p>
+
+<img src="/stream-image/web/5ktwur25ot3d1.jpeg" alt="blob image" />
+<br /><br />
+
+<p><b>Get text content from stream (server-side)</b></p>
+
+@Html.Raw(Model.HtmlContent)
+
+<p><b>Get text content from stream (client-side)</b></p>
+
+<div id="htmlContent">loading...</div>
+
+@section Scripts{
+    <script>
+
+        document.addEventListener('DOMContentLoaded', domContentLoadedHandler);
+
+        async function domContentLoadedHandler() {
+            console.log('DOM loaded');
+            let htmlContent = document.getElementById('htmlContent');
+            try {
+                let response = await fetch('/stream-html/web/html-part.html');
+                let data = await response.text();
+                htmlContent.innerHTML = data;
+            } catch (error) {
+                console.error('Error fetching HTML content:', error);
+            }
+        }
+    </script>
+}

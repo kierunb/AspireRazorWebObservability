@@ -42,16 +42,41 @@ docker run -d `
 
 - [more information](https://docs.datalust.co/docs/opentelemetry-net-sdk)
 
-## AppInsights
+## AppInsights (Production monitoring)
 
 Azure AppInsights monitoring configuration:
 
 ```shell
 dotnet user-secrets init
 dotnet user-secrets set "ConnectionStrings:AppInsights" ""
+dotnet user-secrets set "ConnectionStrings:StorageAccount" ""
 ```
 
 ### References
 
+#### OpenTelemetry
 https://learn.microsoft.com/en-us/azure/azure-monitor/app/opentelemetry-enable?tabs=aspnetcore
 https://learn.microsoft.com/en-us/azure/azure-monitor/app/opentelemetry-configuration?tabs=aspnetcore
+
+#### .NET Diagnostics
+https://learn.microsoft.com/en-us/dotnet/core/diagnostics/
+
+#### Minimal APIs
+https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis/responses?view=aspnetcore-9.0
+https://www.mikesdotnetting.com/article/358/using-minimal-apis-in-asp-net-core-razor-pages
+https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis/responses?view=aspnetcore-9.0
+
+#### Caching
+https://learn.microsoft.com/en-us/aspnet/core/performance/caching/output?view=aspnetcore-9.0
+https://learn.microsoft.com/en-us/aspnet/core/performance/caching/response?view=aspnetcore-9.0
+
+#### Base url
+https://freedium.cfd/https://medium.com/it-dead-inside/accessing-the-asp-net-core-base-url-so-many-ways-f07f6ee58f68
+
+#### Streams
+https://medium.com/@dmytro.misik/net-streams-f3e9801b7ef0
+
+#### Azure FrontDoor/CDN
+https://learn.microsoft.com/en-us/azure/frontdoor/front-door-overview
+https://learn.microsoft.com/en-us/azure/frontdoor/front-door-caching?pivots=front-door-standard-premium
+https://learn.microsoft.com/en-us/azure/architecture/web-apps/guides/enterprise-app-patterns/modern-web-app/dotnet/guidance
