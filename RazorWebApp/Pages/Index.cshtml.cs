@@ -24,8 +24,18 @@ public class IndexModel : PageModel
     {
         var httpClient = _httpClientFactory.CreateClient();
 
-        // logging
+        string category = "FrontPage";
+        
+        _logger.LogWarning($"Unstructured Logs. Number: {DateTime.Now.Microsecond}, Date: {DateTime.Now}, Category: {category}");
+
+        _logger.LogWarning("Structured Logs. Number: {number}, Date: {date}, Category: {category}", 
+            DateTime.Now.Microsecond, DateTime.Now, category);
+
+
+        // structred logging (using log templates)
         _logger.LogInformation("Index page visited, number {number}", DateTime.Now.Millisecond);
+
+
         AppLogs.LogIndexPageVisited(_logger, "Index page visited");
 
         // metrics

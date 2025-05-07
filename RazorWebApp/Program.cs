@@ -38,7 +38,7 @@ builder.Services.AddAzureClients(clientBuilder =>
 });
 
 // OpenTelemetry
-builder.UseOpenTelemetry(enableAzureMonitor: true, enableAspireDashboard: false);
+builder.UseOpenTelemetry(enableAzureMonitor: true, enableAspireDashboard: true);
 builder.Services.AddSingleton<AppMetricsService>();
 
 var app = builder.Build();
