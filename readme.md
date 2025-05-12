@@ -89,6 +89,14 @@ dotnet user-secrets set "ConnectionStrings:StorageAccount" ""
 - https://learn.microsoft.com/en-us/azure/frontdoor/front-door-caching?pivots=front-door-standard-premium
 - https://learn.microsoft.com/en-us/azure/architecture/web-apps/guides/enterprise-app-patterns/modern-web-app/dotnet/guidance
 
+
+#### Performance Optimization:
+- [Memory and GC](https://learn.microsoft.com/en-us/aspnet/core/performance/memory?view=aspnetcore-9.0)
+- [Hybrid Cache](https://learn.microsoft.com/en-us/aspnet/core/performance/caching/hybrid?view=aspnetcore-9.0)
+- [Cache Tag Helper](https://learn.microsoft.com/en-us/aspnet/core/mvc/views/tag-helpers/built-in/cache-tag-helper?view=aspnetcore-9.0)
+- [Fusion Cache](https://github.com/ZiggyCreatures/FusionCache)
+- [Fusion Cache Scenarios](https://github.com/ZiggyCreatures/FusionCache/blob/main/docs/StepByStep.md)
+
 ### Samples
 
 ```csharp

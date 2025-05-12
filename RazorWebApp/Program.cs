@@ -22,6 +22,8 @@ builder.Services.AddOutputCache(options =>
     options.AddPolicy("Expire30", builder => builder.Expire(TimeSpan.FromSeconds(30)));
 });
 
+builder.Services.AddHybridCache();
+
 // HttpClient with resilience
 builder.Services.AddHttpClient(
     "blobs",
@@ -38,7 +40,7 @@ builder.Services.AddAzureClients(clientBuilder =>
 });
 
 // OpenTelemetry
-builder.UseOpenTelemetry(enableAzureMonitor: true, enableAspireDashboard: true);
+builder.UseOpenTelemetry(enableAzureMonitor: false, enableAspireDashboard: true);
 builder.Services.AddSingleton<AppMetricsService>();
 
 var app = builder.Build();

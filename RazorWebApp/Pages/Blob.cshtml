@@ -13,13 +13,13 @@
 
 <hr />
 
-<h5>
+@* <h5>
     Get image from stream
-</h5>
+</h5> *@
 
-<img src="/stream-image/web/5ktwur25ot3d1.jpeg" alt="blob image" />
+@* <img src="/stream-image/web/5ktwur25ot3d1.jpeg" alt="blob image" />
 <br />
-<br />
+<br /> *@
 
 <h5>
     Get text content from stream (server-side)
@@ -28,62 +28,62 @@
 @* potential XSS vulenrability if html content is not validated/safe or encoded *@
 @Html.Raw(Model.HtmlContent)
 
-<h5>
+@* <h5>
     Get text content from stream (client-side)
 </h5>
 
-<div id="htmlContent">loading...</div>
+<div id="htmlContent">loading...</div> *@
 
 
 
-<div id="app">
+@* <div id="app">
     <h5>
         {{header}}
     </h5>
     <div v-html="htmlContent"></div>
-</div>
+</div> *@
 
 @section Scripts {
 
-    // pure javascript
+    @* // pure javascript *@
     <script>
-        document.addEventListener('DOMContentLoaded', domContentLoadedHandler);
+        //document.addEventListener('DOMContentLoaded', domContentLoadedHandler);
 
-        async function domContentLoadedHandler() {
-            console.log('DOM loaded');
-            let htmlContent = document.getElementById('htmlContent');
-            try {
-                let response = await fetch('/stream-html/web/html-part.html');
-                let data = await response.text();
-                htmlContent.innerHTML = data;
-            } catch (error) {
-                console.error('Error fetching HTML content:', error);
-            }
-        }
+        // async function domContentLoadedHandler() {
+        //     console.log('DOM loaded');
+        //     let htmlContent = document.getElementById('htmlContent');
+        //     try {
+        //         let response = await fetch('/stream-html/web/html-part.html');
+        //         let data = await response.text();
+        //         htmlContent.innerHTML = data;
+        //     } catch (error) {
+        //         console.error('Error fetching HTML content:', error);
+        //     }
+        // }
     </script>
 
-        // vue.js
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+        @* // vue.js *@
+    @* <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script> *@
     <script>
-        const app = Vue.createApp({
-            data() {
-                return {
-                    header: 'Get text content from stream (client-side - vue.js)',
-                    htmlContent: ''
-                }
-            },
-            mounted() {
-                console.log('Vue loaded');
-                fetch('/stream-html/web/html-part.html')
-                    .then(response => response.text())
-                    .then(data => {
-                        this.htmlContent = data;
-                    })
-                    .catch(error => {
-                        console.error('Error fetching HTML content:', error);
-                    });
-            }
-        })
-        app.mount('#app')
+        // const app = Vue.createApp({
+        //     data() {
+        //         return {
+        //             header: 'Get text content from stream (client-side - vue.js)',
+        //             htmlContent: ''
+        //         }
+        //     },
+        //     mounted() {
+        //         console.log('Vue loaded');
+        //         fetch('/stream-html/web/html-part.html')
+        //             .then(response => response.text())
+        //             .then(data => {
+        //                 this.htmlContent = data;
+        //             })
+        //             .catch(error => {
+        //                 console.error('Error fetching HTML content:', error);
+        //             });
+        //     }
+        // })
+        // app.mount('#app')
     </script>
 }
