@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Azure;
 using RazorWebApp;
 using RazorWebApp.Endpoints;
+using RazorWebApp.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +25,10 @@ builder.Services.AddOutputCache(options =>
 
 builder.Services.AddHybridCache();
 
+builder.Services.AddFusionCache();
+
+builder.Services.AddTransient<BlobService>();
+
 // HttpClient with resilience
 builder.Services.AddHttpClient(
     "blobs",
@@ -40,7 +45,11 @@ builder.Services.AddAzureClients(clientBuilder =>
 });
 
 // OpenTelemetry
-builder.UseOpenTelemetry(enableAzureMonitor: false, enableAspireDashboard: true);
+builder.UseOpenTelemetry(
+    enableAzureMonitor: false, 
+    enableAspireDashboard: true, 
+    enablePrometheus: false);
+
 builder.Services.AddSingleton<AppMetricsService>();
 
 var app = builder.Build();

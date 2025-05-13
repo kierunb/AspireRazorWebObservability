@@ -12,12 +12,13 @@
 <div>
 
     @* @await Component.InvokeAsync("Blob", new { containerName = "web", blobName = "html-part.html" }) *@
-    @await Component.InvokeAsync("Blob", new { containerName = "web", blobName = "500KB.html" })
+    
 
-@*     <cache expires-after="@TimeSpan.FromSeconds(10)">
+    <cache expires-after="@TimeSpan.FromSeconds(10)">
         @DateTime.Now
         <hr />
         
-    </cache> *@
+    </cache>
 
+    @await Component.InvokeAsync("Blob", new { containerName = "web", blobName = "500KB.html" })
 </div>
