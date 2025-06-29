@@ -1,0 +1,254 @@
+@page "/htmlblob"
+@model RazorWebApp.Pages.HtmlBlobModel
+@{
+    ViewData["Title"] = "Efficient HTML Blob Viewer";
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">@ViewData["Title"]</h1>
+            
+            @if (!string.IsNullOrEmpty(TempData["Message"] as string))
+            {
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    @TempData["Message"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+            
+            @if (!string.IsNullOrEmpty(TempData["Error"] as string))
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    @TempData["Error"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Configuration Form -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Configuration Options</h5>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <label for="containerName" class="form-label">Container Name</label>
+                            <input type="text" class="form-control" id="containerName" name="containerName" 
+                                   value="@Model.ContainerName" placeholder="e.g., web" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="blobName" class="form-label">Blob Name</label>
+                            <input type="text" class="form-control" id="blobName" name="blobName" 
+                                   value="@Model.BlobName" placeholder="e.g., content.html" required>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-check mt-4">
+                                <input class="form-check-input" type="checkbox" id="useCache" name="useCache" 
+                                       value="true" @(Model.UseCache ? "checked" : "")>
+                                <label class="form-check-label" for="useCache">Use Cache</label>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-check mt-4">
+                                <input class="form-check-input" type="checkbox" id="useStreaming" name="useStreaming" 
+                                       value="true" @(Model.UseStreaming ? "checked" : "")>
+                                <label class="form-check-label" for="useStreaming">Use Streaming</label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">Load Content</button>
+                            @if (Model.UseCache && !string.IsNullOrEmpty(Model.HtmlContent))
+                            {
+                                <form method="post" asp-page-handler="ClearCache" class="d-inline ms-2">
+                                    <input type="hidden" name="containerName" value="@Model.ContainerName" />
+                                    <input type="hidden" name="blobName" value="@Model.BlobName" />
+                                    <input type="hidden" name="useCache" value="@Model.UseCache" />
+                                    <input type="hidden" name="useStreaming" value="@Model.UseStreaming" />
+                                    <button type="submit" class="btn btn-outline-warning btn-sm">Clear Cache</button>
+                                </form>
+                            }
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Metrics -->
+    @if (!string.IsNullOrEmpty(Model.HtmlContent) || !string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-3">
+                                <div class="metric">
+                                    <h6 class="text-muted">Processing Time</h6>
+                                    <span class="badge bg-info fs-6">@Model.ProcessingTime.TotalMilliseconds.ToString("F1") ms</span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="metric">
+                                    <h6 class="text-muted">Content Size</h6>
+                                    <span class="badge bg-success fs-6">@FormatBytes(Model.ContentSize)</span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="metric">
+                                    <h6 class="text-muted">Loading Method</h6>
+                                    <span class="badge @(Model.IsStreaming ? "bg-secondary" : "bg-primary") fs-6">
+                                        @(Model.IsStreaming ? "Streaming" : "Direct")
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="metric">
+                                    <h6 class="text-muted">Cache Status</h6>
+                                    <span class="badge @(Model.UseCache ? "bg-success" : "bg-warning") fs-6">
+                                        @(Model.UseCache ? "Enabled" : "Disabled")
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Content Display -->
+    <div class="row">
+        <div class="col-12">
+            @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+            {
+                <div class="alert alert-danger" role="alert">
+                    <h5 class="alert-heading">Error Loading Content</h5>
+                    <p class="mb-0">@Model.ErrorMessage</p>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(Model.HtmlContent))
+            {
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">HTML Content from @Model.ContainerName/@Model.BlobName</h5>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-secondary" onclick="toggleRawView()">
+                                <span id="toggleText">Show Raw HTML</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Rendered HTML Content (default view) -->
+                        <div id="renderedContent" class="rendered-content">
+                            @* Security Note: Only use Html.Raw if you trust the content source *@
+                            @* For production, consider implementing HTML sanitization *@
+                            @Html.Raw(Model.HtmlContent)
+                        </div>
+                        
+                        <!-- Raw HTML Content (hidden by default) -->
+                        <div id="rawContent" class="raw-content" style="display: none;">
+                            <pre><code class="language-html">@Model.HtmlContent</code></pre>
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-info" role="alert">
+                    <h5 class="alert-heading">Ready to Load Content</h5>
+                    <p class="mb-0">Configure the settings above and click "Load Content" to display HTML from Azure Blob Storage.</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Performance Optimization: Include CSS for better rendering -->
+<style>
+    .metric {
+        padding: 0.5rem;
+    }
+    
+    .rendered-content {
+        max-height: 70vh;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        background-color: #ffffff;
+    }
+    
+    .raw-content {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+    
+    .raw-content pre {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin: 0;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+    
+    .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+</style>
+
+<!-- JavaScript for toggle functionality -->
+<script>
+    function toggleRawView() {
+        const renderedContent = document.getElementById('renderedContent');
+        const rawContent = document.getElementById('rawContent');
+        const toggleText = document.getElementById('toggleText');
+        
+        if (rawContent.style.display === 'none') {
+            renderedContent.style.display = 'none';
+            rawContent.style.display = 'block';
+            toggleText.textContent = 'Show Rendered HTML';
+        } else {
+            renderedContent.style.display = 'block';
+            rawContent.style.display = 'none';
+            toggleText.textContent = 'Show Raw HTML';
+        }
+    }
+    
+    // Auto-dismiss alerts after 5 seconds
+    document.addEventListener('DOMContentLoaded', function() {
+        const alerts = document.querySelectorAll('.alert-dismissible');
+        alerts.forEach(function(alert) {
+            setTimeout(function() {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            }, 5000);
+        });
+    });
+</script>
+
+@functions {
+    private string FormatBytes(long bytes)
+    {
+        if (bytes == 0) return "0 B";
+        
+        string[] suffixes = { "B", "KB", "MB", "GB" };
+        int suffixIndex = 0;
+        double size = bytes;
+        
+        while (size >= 1024 && suffixIndex < suffixes.Length - 1)
+        {
+            size /= 1024;
+            suffixIndex++;
+        }
+        
+        return $"{size:F1} {suffixes[suffixIndex]}";
+    }
+}

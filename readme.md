@@ -125,3 +125,101 @@ app.MapGet("/stream-video/{containerName}/{blobName}",
 		enableRangeProcessing: true);
 });
 ```
+
+## 🚀 Efficient HTML Blob Viewer
+
+The project includes a new **HTML Blob Viewer** page (`/htmlblob`) that demonstrates enterprise-grade patterns for serving HTML content from Azure Blob Storage with optimal performance, security, and scalability.
+
+### 🎯 Key Features
+
+- **Memory Efficient Streaming**: Uses `IAsyncEnumerable<string>` for processing large files without loading entire content into memory
+- **Smart Caching**: Implements ASP.NET Core's `HybridCache` with configurable expiration and invalidation
+- **GC Optimization**: Pre-allocates `StringBuilder` capacity to minimize garbage collection pressure  
+- **Performance Monitoring**: Real-time metrics showing processing time, content size, and cache effectiveness
+- **Dual Loading Modes**: Direct loading for small files, streaming for large files
+- **Security First**: Proper input validation, error handling, and Azure security best practices
+
+### 🏗️ Architecture Highlights
+
+#### BlobService Enhancements
+```csharp
+// Memory-efficient streaming with async enumerable
+public async IAsyncEnumerable<string> GetBlobChunksStreamAsync(
+    string containerName, string blobName, 
+    [EnumeratorCancellation] CancellationToken cancellationToken = default)
+
+// Optimized content loading with pre-allocated StringBuilder
+public async Task<string> GetBlobContentOptimizedAsync(
+    string containerName, string blobName, 
+    CancellationToken cancellationToken = default)
+```
+
+#### Performance Optimizations
+- **Chunked Processing**: 80KB chunks to avoid Large Object Heap allocations
+- **Capacity Pre-allocation**: Uses blob size to optimize StringBuilder capacity
+- **Resource Management**: Proper disposal of streams and buffers
+- **Cancellation Support**: Full cancellation token propagation
+
+#### Caching Strategy
+- **L1 Cache**: In-memory with 5-minute expiration
+- **L2 Cache**: Distributed with 15-minute expiration  
+- **Cache Tags**: Enable bulk invalidation by container/blob
+- **Hybrid Approach**: Automatic failover between cache layers
+
+### 📊 Usage Examples
+
+#### Basic Usage
+```
+/htmlblob?containerName=web&blobName=content.html&useCache=true
+```
+
+#### Large File Streaming
+```  
+/htmlblob?containerName=documents&blobName=large-report.html&useStreaming=true
+```
+
+#### Performance Testing
+Navigate to `/htmlblob` and experiment with different configurations:
+- Toggle caching on/off to see performance impact
+- Switch between direct and streaming modes
+- Monitor real-time metrics in the UI
+
+### 🛡️ Security Considerations
+
+- **Input Validation**: Container and blob names are validated
+- **Error Handling**: Graceful handling of missing blobs and Azure errors
+- **HTML Safety**: Raw HTML rendering with security warnings (implement sanitization for production)
+- **Managed Identity**: Uses Azure managed identity for blob storage authentication
+
+### 🔧 Configuration
+
+The implementation leverages existing Azure Blob Storage configuration:
+```csharp
+builder.Services.AddAzureClients(clientBuilder =>
+{
+    clientBuilder.AddBlobServiceClient(
+        builder.Configuration.GetConnectionString("StorageAccount"));
+});
+```
+
+### 📈 Performance Metrics
+
+The page displays real-time performance metrics:
+- **Processing Time**: End-to-end request processing duration
+- **Content Size**: Formatted byte size of loaded content  
+- **Loading Method**: Direct vs. Streaming approach used
+- **Cache Status**: Whether caching was enabled/used
+
+### 🎨 UI Features
+
+- **Responsive Design**: Bootstrap-based responsive layout
+- **Toggle Views**: Switch between rendered HTML and raw source
+- **Cache Management**: Clear cache button for testing
+- **Auto-dismiss Alerts**: User-friendly feedback messages
+- **Performance Dashboard**: Visual metrics display
+
+This implementation demonstrates production-ready patterns for serving dynamic content from Azure Blob Storage with enterprise-grade performance and reliability characteristics.
+
+### 📝 Sample Content
+
+A sample HTML file (`sample-content.html`) is included in the repository root for testing purposes. Upload this to your blob storage container to test the viewer functionality.

@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using Azure.Storage.Blobs;
@@ -47,6 +48,68 @@ public class BlobService
         return content;
     }
 
+    /// <summary>
+    /// Streams blob content as an async enumerable of string chunks for maximum memory efficiency
+    /// This method is ideal for very large files as it doesn't load all chunks into memory at once
+    /// </summary>
+    public async IAsyncEnumerable<string> GetBlobChunksStreamAsync(
+        string containerName, 
+        string blobName, 
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var blobContainerClient = _blobServiceClient.GetBlobContainerClient(containerName);
+        var blobClient = blobContainerClient.GetBlobClient(blobName);
+
+        using var stream = await blobClient.OpenReadAsync(cancellationToken: cancellationToken);
+        var buffer = new byte[_chunkSize];
+        int bytesRead;
+        int chunkIndex = 0;
+        long totalBytesRead = 0;
+
+        while ((bytesRead = await stream.ReadAsync(buffer, 0, _chunkSize, cancellationToken)) > 0)
+        {
+            totalBytesRead += bytesRead;
+            var chunk = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+            
+            _logger.LogDebug(
+                "Streaming chunk {ChunkIndex} ({BytesRead} bytes) from blob {BlobName}",
+                chunkIndex++, bytesRead, blobName);
+                
+            yield return chunk;
+        }
+
+        _logger.LogInformation(
+            "Completed streaming {TotalBytesRead} bytes in {TotalChunks} chunks from blob {BlobName} in container {ContainerName}",
+            totalBytesRead, chunkIndex, blobName, containerName);
+    }
+
+    /// <summary>
+    /// Gets blob content with memory-efficient streaming, returning the complete content as a single string
+    /// Uses StringBuilder with capacity estimation to minimize allocations
+    /// </summary>
+    public async Task<string> GetBlobContentOptimizedAsync(
+        string containerName, 
+        string blobName, 
+        CancellationToken cancellationToken = default)
+    {
+        var blobContainerClient = _blobServiceClient.GetBlobContainerClient(containerName);
+        var blobClient = blobContainerClient.GetBlobClient(blobName);
+
+        // Get blob size for StringBuilder capacity optimization
+        var properties = await blobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
+        var blobSize = properties.Value.ContentLength;
+        
+        // Initialize StringBuilder with appropriate capacity to minimize allocations
+        var contentBuilder = new StringBuilder((int)Math.Min(blobSize, int.MaxValue));
+
+        await foreach (var chunk in GetBlobChunksStreamAsync(containerName, blobName, cancellationToken))
+        {
+            contentBuilder.Append(chunk);
+        }
+
+        return contentBuilder.ToString();
+    }
+
     // index starts from 0
     private string GetKey(string containerName, string blobName, int index = 0) =>
         $"{containerName}-{blobName}-{index}";
@@ -62,15 +125,17 @@ public class BlobService
         List<string> chunks = [];
         var buffer = new byte[_chunkSize];
         int bytesRead;
+        long totalBytesRead = 0;
 
-        while ((bytesRead = await stream.ReadAsync(buffer, 0, _chunkSize)) > 0)
+        while ((bytesRead = await stream.ReadAsync(buffer, 0, _chunkSize, cancellationToken)) > 0)
         {
             chunks.Add(Encoding.UTF8.GetString(buffer, 0, bytesRead));
+            totalBytesRead += bytesRead;
         }
 
         _logger.LogInformation(
-            "Read {BytesRead} bytes in {Chunks} chunks from blob {BlobName} in container {ContainerName}",
-            bytesRead,
+            "Read {TotalBytesRead} bytes in {Chunks} chunks from blob {BlobName} in container {ContainerName}",
+            totalBytesRead,
             chunks.Count,
             blobName,
             containerName
