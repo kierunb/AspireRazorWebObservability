@@ -6,6 +6,9 @@ using RazorWebApp.Services;
 using System.Text;
 using System.Diagnostics;
 using Azure.Storage.Blobs;
+using Ganss.Xss;
+using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace RazorWebApp.Pages;
 
@@ -19,6 +22,11 @@ public class HtmlBlobModel : PageModel, IDisposable
     private readonly BlobService _blobService;
     private readonly HybridCache _cache;
     private readonly BlobServiceClient _blobServiceClient;
+    private readonly IHtmlSanitizer _htmlSanitizer;
+    
+    // Input validation patterns
+    private static readonly Regex ContainerNamePattern = new(@"^[a-z0-9](?:[a-z0-9\-]*[a-z0-9])?$", RegexOptions.Compiled);
+    private static readonly Regex BlobNamePattern = new(@"^[a-zA-Z0-9][a-zA-Z0-9\-_.]*\.(html|htm)$", RegexOptions.Compiled);
     
     // Properties for the page
     public string? HtmlContent { get; private set; }
@@ -55,12 +63,14 @@ public class HtmlBlobModel : PageModel, IDisposable
         ILogger<HtmlBlobModel> logger,
         BlobService blobService,
         HybridCache cache,
-        BlobServiceClient blobServiceClient)
+        BlobServiceClient blobServiceClient,
+        IHtmlSanitizer htmlSanitizer)
     {
         _logger = logger;
         _blobService = blobService;
         _cache = cache;
         _blobServiceClient = blobServiceClient;
+        _htmlSanitizer = htmlSanitizer;
     }
 
     /// <summary>
@@ -73,9 +83,8 @@ public class HtmlBlobModel : PageModel, IDisposable
         try
         {
             // Validate input parameters
-            if (string.IsNullOrWhiteSpace(ContainerName) || string.IsNullOrWhiteSpace(BlobName))
+            if (!ValidateInputs())
             {
-                ErrorMessage = "Container name and blob name are required.";
                 return Page();
             }
 
@@ -122,13 +131,13 @@ public class HtmlBlobModel : PageModel, IDisposable
         }
         catch (Azure.RequestFailedException ex) when (ex.Status == 404)
         {
-            ErrorMessage = $"Blob '{BlobName}' not found in container '{ContainerName}'.";
-            _logger.LogWarning("Blob not found: {BlobName} in {ContainerName}", BlobName, ContainerName);
+            ErrorMessage = $"Content not found.";
+            _logger.LogWarning("Blob not found: {ContainerName}/{BlobName}", ContainerName, BlobName);
         }
         catch (Exception ex)
         {
-            ErrorMessage = "An error occurred while loading the HTML content.";
-            _logger.LogError(ex, "Error loading HTML blob {BlobName} from {ContainerName}", BlobName, ContainerName);
+            ErrorMessage = "Unable to load content. Please try again later.";
+            _logger.LogError(ex, "Error loading HTML blob {ContainerName}/{BlobName}", ContainerName, BlobName);
         }
         finally
         {
@@ -440,6 +449,89 @@ public class HtmlBlobModel : PageModel, IDisposable
         return RedirectToPage(new { ContainerName, BlobName, UseCache, UseStreaming, UseServerSideStreaming, UsePureStreaming, UseViewStreaming });
     }
 
+    /// <summary>
+    /// Validates input parameters to prevent security issues
+    /// </summary>
+    private bool ValidateInputs()
+    {
+        if (string.IsNullOrWhiteSpace(ContainerName) || string.IsNullOrWhiteSpace(BlobName))
+        {
+            ErrorMessage = "Container name and blob name are required.";
+            return false;
+        }
+
+        if (!ContainerNamePattern.IsMatch(ContainerName))
+        {
+            ErrorMessage = "Invalid container name format.";
+            _logger.LogWarning("Invalid container name format: {ContainerName}", ContainerName);
+            return false;
+        }
+
+        if (!BlobNamePattern.IsMatch(BlobName))
+        {
+            ErrorMessage = "Invalid blob name format. Only HTML files are allowed.";
+            _logger.LogWarning("Invalid blob name format: {BlobName}", BlobName);
+            return false;
+        }
+
+        if (ContainerName.Length > 63 || BlobName.Length > 1024)
+        {
+            ErrorMessage = "Container or blob name is too long.";
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Sanitizes HTML content to prevent XSS attacks
+    /// </summary>
+    public string GetSanitizedContent()
+    {
+        if (string.IsNullOrEmpty(HtmlContent))
+            return string.Empty;
+            
+        try
+        {
+            var sanitized = _htmlSanitizer.Sanitize(HtmlContent);
+            
+            _logger.LogDebug("HTML content sanitized. Original length: {Original}, Sanitized length: {Sanitized}",
+                HtmlContent.Length, sanitized.Length);
+                
+            return sanitized;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sanitizing HTML content");
+            return "<div class='alert alert-danger'>Content could not be displayed safely.</div>";
+        }
+    }
+
+    /// <summary>
+    /// Sanitizes stream content read in the view
+    /// </summary>
+    public async Task<string> GetSanitizedStreamContentAsync()
+    {
+        try
+        {
+            var content = await ReadStreamContentAsync();
+            if (string.IsNullOrEmpty(content))
+                return string.Empty;
+
+            var sanitized = _htmlSanitizer.Sanitize(content);
+            
+            _logger.LogDebug("Stream content sanitized. Original length: {Original}, Sanitized length: {Sanitized}",
+                content.Length, sanitized.Length);
+                
+            return sanitized;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sanitizing stream content");
+            return "<div class='alert alert-danger'>Stream content could not be displayed safely.</div>";
+        }
+    }
+
     private bool _disposed = false;
 
     /// <summary>
@@ -455,8 +547,19 @@ public class HtmlBlobModel : PageModel, IDisposable
     {
         if (!_disposed && disposing)
         {
-            HtmlContentStream?.Dispose();
-            _disposed = true;
+            try
+            {
+                HtmlContentStream?.Dispose();
+                HtmlContentStream = null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error disposing HTML content stream");
+            }
+            finally
+            {
+                _disposed = true;
+            }
         }
     }
 }

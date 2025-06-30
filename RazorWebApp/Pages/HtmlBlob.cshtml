@@ -200,14 +200,13 @@
                     <div class="card-body">
                         <!-- Rendered HTML Content (default view) -->
                         <div id="renderedContent" class="rendered-content">
-                            @* Security Note: Only use Html.Raw if you trust the content source *@
-                            @* For production, consider implementing HTML sanitization *@
-                            @Html.Raw(Model.HtmlContent)
+                            @* Security: HTML content is sanitized to prevent XSS attacks *@
+                            @Html.Raw(Model.GetSanitizedContent())
                         </div>
                         
                         <!-- Raw HTML Content (hidden by default) -->
                         <div id="rawContent" class="raw-content" style="display: none;">
-                            <pre><code class="language-html">@Model.HtmlContent</code></pre>
+                            <pre><code class="language-html">@Model.GetSanitizedContent()</code></pre>
                         </div>
                     </div>
                 </div>
@@ -227,14 +226,14 @@
                             @{
                                 try
                                 {
-                                    // Option 1: Read entire stream content (for smaller files)
-                                    var streamContent = await Model.ReadStreamContentAsync();
+                                    // Option 1: Read and sanitize stream content (for smaller files)
+                                    var streamContent = await Model.GetSanitizedStreamContentAsync();
                                     @Html.Raw(streamContent)
                                 }
-                                catch (Exception ex)
+                                catch (Exception)
                                 {
                                     <div class="alert alert-danger">
-                                        <strong>Stream Error:</strong> @ex.Message
+                                        <strong>Stream Error:</strong> Unable to load stream content safely.
                                     </div>
                                 }
                             }
