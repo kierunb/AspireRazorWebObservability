@@ -35,7 +35,7 @@
                     <h5 class="card-title mb-0">Configuration Options</h5>
                 </div>
                 <div class="card-body">
-                    <form method="get" class="row g-3">
+                    <form method="get" class="row g-3" onsubmit="return validateForm()">
                         <div class="col-md-3">
                             <label for="containerName" class="form-label">Container Name</label>
                             <input type="text" class="form-control" id="containerName" name="containerName" 
@@ -71,8 +71,7 @@
                                 <div class="col-4">
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="useServerSideStreaming" name="useServerSideStreaming" 
-                                               value="true" @(Model.UseServerSideStreaming ? "checked" : "")
-                                               onchange="handleServerSideStreamingChange()">
+                                               value="true" @(Model.UseServerSideStreaming ? "checked" : "")>
                                         <label class="form-check-label" for="useServerSideStreaming">
                                             <span class="badge bg-info">Server Stream</span>
                                         </label>
@@ -82,8 +81,7 @@
                                 <div class="col-4">
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="useViewStreaming" name="useViewStreaming" 
-                                               value="true" @(Model.UseViewStreaming ? "checked" : "")
-                                               onchange="handleViewStreamingChange()">
+                                               value="true" @(Model.UseViewStreaming ? "checked" : "")>
                                         <label class="form-check-label" for="useViewStreaming">
                                             <span class="badge bg-warning">View Stream</span>
                                         </label>
@@ -93,8 +91,7 @@
                                 <div class="col-4">
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="usePureStreaming" name="usePureStreaming" 
-                                               value="true" @(Model.UsePureStreaming ? "checked" : "")
-                                               onchange="handlePureStreamingChange()">
+                                               value="true" @(Model.UsePureStreaming ? "checked" : "")>
                                         <label class="form-check-label" for="usePureStreaming">
                                             <span class="badge bg-success">Pure Stream</span>
                                         </label>
@@ -222,7 +219,7 @@
                     </div>
                     <div class="card-body">
                         <!-- View-Level Stream Content -->
-                        <div class="stream-content">
+@*                         <div class="stream-content">
                             @{
                                 try
                                 {
@@ -237,10 +234,10 @@
                                     </div>
                                 }
                             }
-                        </div>
+                        </div> *@
                         
                         <!-- Alternative: Chunked reading for very large files -->
-                        @* Uncomment this section to use chunked streaming instead:
+                        Uncomment this section to use chunked streaming instead:
                         <div class="stream-content-chunked" style="display: none;">
                             @{
                                 try
@@ -258,7 +255,7 @@
                                 }
                             }
                         </div>
-                        *@
+                       
                     </div>
                 </div>
             }
@@ -329,6 +326,20 @@
     .card {
         box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
     }
+
+    .form-check-input:disabled + .form-check-label {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .form-check-input:disabled + .form-check-label .badge {
+        opacity: 0.6;
+    }
+    
+    .alert.mt-2 {
+        margin-top: 0.5rem !important;
+        font-size: 0.9rem;
+    }
 </style>
 
 <!-- JavaScript for toggle functionality -->
@@ -368,6 +379,9 @@
             cacheCheckbox.disabled = true;
             streamingCheckbox.disabled = true;
             
+            // Hide other info panels
+            hideServerSideStreamingInfo();
+            hideViewStreamingInfo();
             showPureStreamingWarning();
         } else {
             serverSideStreamingCheckbox.disabled = false;
@@ -390,6 +404,16 @@
             streamingCheckbox.checked = false;
             viewStreamingCheckbox.checked = false;
             
+            // Re-enable disabled controls if pure streaming was previously selected
+            pureStreamingCheckbox.disabled = false;
+            viewStreamingCheckbox.disabled = false;
+            const cacheCheckbox = document.getElementById('useCache');
+            cacheCheckbox.disabled = false;
+            streamingCheckbox.disabled = false;
+            
+            // Hide other info panels
+            hidePureStreamingWarning();
+            hideViewStreamingInfo();
             showServerSideStreamingInfo();
         } else {
             hideServerSideStreamingInfo();
@@ -408,12 +432,67 @@
             serverSideStreamingCheckbox.checked = false;
             streamingCheckbox.checked = false;
             
+            // Re-enable disabled controls if pure streaming was previously selected
+            pureStreamingCheckbox.disabled = false;
+            serverSideStreamingCheckbox.disabled = false;
+            const cacheCheckbox = document.getElementById('useCache');
+            cacheCheckbox.disabled = false;
+            streamingCheckbox.disabled = false;
+            
+            // Hide other info panels
+            hidePureStreamingWarning();
+            hideServerSideStreamingInfo();
             showViewStreamingInfo();
         } else {
             hideViewStreamingInfo();
         }
     }
     
+    function handleStreamingChange() {
+        const streamingCheckbox = document.getElementById('useStreaming');
+        const pureStreamingCheckbox = document.getElementById('usePureStreaming');
+        const serverSideStreamingCheckbox = document.getElementById('useServerSideStreaming');
+        const viewStreamingCheckbox = document.getElementById('useViewStreaming');
+        
+        if (streamingCheckbox.checked) {
+            // Regular streaming disables advanced streaming options but allows them to be re-enabled
+            pureStreamingCheckbox.checked = false;
+            serverSideStreamingCheckbox.checked = false;
+            viewStreamingCheckbox.checked = false;
+            
+            // Hide info panels
+            hidePureStreamingWarning();
+            hideServerSideStreamingInfo();
+            hideViewStreamingInfo();
+        }
+    }
+    
+    function validateForm() {
+        const containerName = document.getElementById('containerName').value.trim();
+        const blobName = document.getElementById('blobName').value.trim();
+        
+        if (!containerName || !blobName) {
+            alert('Container name and blob name are required.');
+            return false;
+        }
+        
+        // Basic validation patterns
+        const containerPattern = /^[a-z0-9](?:[a-z0-9\-]*[a-z0-9])?$/;
+        const blobPattern = /^[a-zA-Z0-9][a-zA-Z0-9\-_.]*\.(html|htm)$/;
+        
+        if (!containerPattern.test(containerName)) {
+            alert('Invalid container name format. Use lowercase letters, numbers, and hyphens only.');
+            return false;
+        }
+        
+        if (!blobPattern.test(blobName)) {
+            alert('Invalid blob name format. Only HTML files (.html or .htm) are allowed.');
+            return false;
+        }
+        
+        return true;
+    }
+
     function showServerSideStreamingInfo() {
         let info = document.getElementById('serverSideStreamingInfo');
         if (!info) {
@@ -491,17 +570,68 @@
         const alerts = document.querySelectorAll('.alert-dismissible');
         alerts.forEach(function(alert) {
             setTimeout(function() {
-                const bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
+                if (alert.parentNode && typeof bootstrap !== 'undefined' && bootstrap.Alert) {
+                    try {
+                        const bsAlert = new bootstrap.Alert(alert);
+                        bsAlert.close();
+                    } catch (e) {
+                        // Fallback: manually remove the alert
+                        alert.style.display = 'none';
+                    }
+                } else {
+                    // Fallback: manually remove the alert
+                    alert.style.display = 'none';
+                }
             }, 5000);
         });
         
-        // Initialize streaming state
-        handlePureStreamingChange();
-        handleServerSideStreamingChange();
-        handleViewStreamingChange();
+        // Initialize streaming state based on current checkbox values
+        initializeCheckboxStates();
     });
-</script>
+    
+    function initializeCheckboxStates() {
+        try {
+            // Check current state and initialize accordingly
+            const pureStreamingCheckbox = document.getElementById('usePureStreaming');
+            const serverSideStreamingCheckbox = document.getElementById('useServerSideStreaming');
+            const viewStreamingCheckbox = document.getElementById('useViewStreaming');
+            const streamingCheckbox = document.getElementById('useStreaming');
+            
+            // Handle pure streaming first (highest priority)
+            if (pureStreamingCheckbox && pureStreamingCheckbox.checked) {
+                handlePureStreamingChange();
+            }
+            // Then handle server-side streaming
+            else if (serverSideStreamingCheckbox && serverSideStreamingCheckbox.checked) {
+                handleServerSideStreamingChange();
+            }
+            // Then handle view streaming
+            else if (viewStreamingCheckbox && viewStreamingCheckbox.checked) {
+                handleViewStreamingChange();
+            }
+            // Finally handle regular streaming
+            else if (streamingCheckbox && streamingCheckbox.checked) {
+                handleStreamingChange();
+            }
+            
+            // Add event listeners for checkbox changes
+            if (pureStreamingCheckbox) {
+                pureStreamingCheckbox.addEventListener('change', handlePureStreamingChange);
+            }
+            if (serverSideStreamingCheckbox) {
+                serverSideStreamingCheckbox.addEventListener('change', handleServerSideStreamingChange);
+            }
+            if (viewStreamingCheckbox) {
+                viewStreamingCheckbox.addEventListener('change', handleViewStreamingChange);
+            }
+            if (streamingCheckbox) {
+                streamingCheckbox.addEventListener('change', handleStreamingChange);
+            }
+        } catch (error) {
+            console.error('Error initializing checkbox states:', error);
+        }
+    }
+}
 
 @functions {
     private string FormatBytes(long bytes)
