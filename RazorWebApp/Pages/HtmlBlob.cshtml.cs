@@ -5,6 +5,7 @@ using Microsoft.Extensions.Caching.Hybrid;
 using RazorWebApp.Services;
 using System.Text;
 using System.Diagnostics;
+using Azure.Storage.Blobs;
 
 namespace RazorWebApp.Pages;
 
@@ -12,18 +13,21 @@ namespace RazorWebApp.Pages;
 /// Efficient HTML blob viewer page with streaming, caching, and memory optimization
 /// </summary>
 [OutputCache(PolicyName = "Expire30")]
-public class HtmlBlobModel : PageModel
+public class HtmlBlobModel : PageModel, IDisposable
 {
     private readonly ILogger<HtmlBlobModel> _logger;
     private readonly BlobService _blobService;
     private readonly HybridCache _cache;
+    private readonly BlobServiceClient _blobServiceClient;
     
     // Properties for the page
     public string? HtmlContent { get; private set; }
+    public Stream? HtmlContentStream { get; private set; }
     public string? ErrorMessage { get; private set; }
     public long ContentSize { get; private set; }
     public TimeSpan ProcessingTime { get; private set; }
     public bool IsStreaming { get; private set; }
+    public bool IsStreamingMode { get; private set; }
     
     // Query parameters
     [BindProperty(SupportsGet = true)]
@@ -38,14 +42,25 @@ public class HtmlBlobModel : PageModel
     [BindProperty(SupportsGet = true)]
     public bool UseStreaming { get; set; } = false;
 
+    [BindProperty(SupportsGet = true)]
+    public bool UsePureStreaming { get; set; } = false;
+
+    [BindProperty(SupportsGet = true)]
+    public bool UseServerSideStreaming { get; set; } = false;
+
+    [BindProperty(SupportsGet = true)]
+    public bool UseViewStreaming { get; set; } = false;
+
     public HtmlBlobModel(
         ILogger<HtmlBlobModel> logger,
         BlobService blobService,
-        HybridCache cache)
+        HybridCache cache,
+        BlobServiceClient blobServiceClient)
     {
         _logger = logger;
         _blobService = blobService;
         _cache = cache;
+        _blobServiceClient = blobServiceClient;
     }
 
     /// <summary>
@@ -66,10 +81,27 @@ public class HtmlBlobModel : PageModel
 
             // Log the request
             _logger.LogInformation(
-                "Loading HTML blob {BlobName} from container {ContainerName}. UseCache: {UseCache}, UseStreaming: {UseStreaming}",
-                BlobName, ContainerName, UseCache, UseStreaming);
+                "Loading HTML blob {BlobName} from container {ContainerName}. UseCache: {UseCache}, UseStreaming: {UseStreaming}, UsePureStreaming: {UsePureStreaming}, UseServerSideStreaming: {UseServerSideStreaming}, UseViewStreaming: {UseViewStreaming}",
+                BlobName, ContainerName, UseCache, UseStreaming, UsePureStreaming, UseServerSideStreaming, UseViewStreaming);
 
-            if (UseStreaming)
+            if (UsePureStreaming)
+            {
+                // Use pure streaming approach - stream directly to response
+                return await StreamHtmlContentDirectly(cancellationToken);
+            }
+            else if (UseViewStreaming)
+            {
+                // Use view-level streaming - pass stream to the view for consumption
+                await LoadHtmlContentStreamForView(cancellationToken);
+                IsStreamingMode = true;
+            }
+            else if (UseServerSideStreaming)
+            {
+                // Use server-side streaming approach - process stream on server for SEO
+                await LoadHtmlContentServerSideStreaming(cancellationToken);
+                IsStreaming = true;
+            }
+            else if (UseStreaming)
             {
                 // Use streaming approach for large files or when specified
                 await LoadHtmlContentStreaming(cancellationToken);
@@ -145,6 +177,248 @@ public class HtmlBlobModel : PageModel
     }
 
     /// <summary>
+    /// Streams HTML content directly to the response without loading into memory
+    /// This is the most memory-efficient approach for very large files
+    /// </summary>
+    private async Task<IActionResult> StreamHtmlContentDirectly(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var blobContainerClient = _blobServiceClient.GetBlobContainerClient(ContainerName);
+            var blobClient = blobContainerClient.GetBlobClient(BlobName);
+            
+            // Get blob properties for content length and validation
+            var properties = await blobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
+            ContentSize = properties.Value.ContentLength;
+            
+            // Set response headers for HTML content
+            Response.ContentType = "text/html; charset=utf-8";
+            Response.ContentLength = ContentSize;
+            
+            // Add cache headers if caching is enabled
+            if (UseCache)
+            {
+                Response.Headers.CacheControl = "public, max-age=300"; // 5 minutes
+                Response.Headers.ETag = properties.Value.ETag.ToString();
+            }
+            
+            // Stream directly to response
+            using var blobStream = await blobClient.OpenReadAsync(cancellationToken: cancellationToken);
+            await blobStream.CopyToAsync(Response.Body, cancellationToken);
+            
+            _logger.LogInformation(
+                "Successfully streamed {ContentSize} bytes directly to response for blob {BlobName}",
+                ContentSize, BlobName);
+                
+            return new EmptyResult();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error streaming HTML content directly for blob {BlobName}", BlobName);
+            
+            // Fall back to error page
+            ErrorMessage = "An error occurred while streaming the HTML content.";
+            return Page();
+        }
+    }
+
+    /// <summary>
+    /// Loads HTML content as a stream for partial streaming scenarios
+    /// Allows for some processing while maintaining memory efficiency
+    /// </summary>
+    private async Task LoadHtmlContentAsStream(CancellationToken cancellationToken)
+    {
+        // Dispose any existing stream
+        HtmlContentStream?.Dispose();
+        
+        var blobContainerClient = _blobServiceClient.GetBlobContainerClient(ContainerName);
+        var blobClient = blobContainerClient.GetBlobClient(BlobName);
+        
+        // Get properties for content size
+        var properties = await blobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
+        ContentSize = properties.Value.ContentLength;
+        
+        // Open stream (will be disposed by the page lifecycle)
+        HtmlContentStream = await blobClient.OpenReadAsync(cancellationToken: cancellationToken);
+        IsStreamingMode = true;
+        
+        _logger.LogInformation(
+            "Opened stream for blob {BlobName} with size {ContentSize} bytes",
+            BlobName, ContentSize);
+    }
+
+    /// <summary>
+    /// Loads HTML content using server-side streaming for SEO optimization
+    /// Processes the stream on the server and renders content directly in the page
+    /// This approach provides the best of both worlds: memory efficiency and SEO compatibility
+    /// </summary>
+    private async Task LoadHtmlContentServerSideStreaming(CancellationToken cancellationToken)
+    {
+        if (UseCache)
+        {
+            // For server-side streaming, we can still use cache for the final rendered content
+            var cacheKey = $"html-blob-server-stream-{ContainerName}-{BlobName}";
+            var cacheOptions = new HybridCacheEntryOptions
+            {
+                LocalCacheExpiration = TimeSpan.FromMinutes(5),
+                Expiration = TimeSpan.FromMinutes(15)
+            };
+
+            HtmlContent = await _cache.GetOrCreateAsync(
+                cacheKey,
+                async _ => await ProcessStreamOnServer(cancellationToken),
+                options: cacheOptions,
+                cancellationToken: cancellationToken
+            );
+        }
+        else
+        {
+            HtmlContent = await ProcessStreamOnServer(cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Processes the blob stream on the server for SEO-friendly rendering
+    /// Uses async enumerable for memory efficiency while maintaining server-side processing
+    /// </summary>
+    private async Task<string> ProcessStreamOnServer(CancellationToken cancellationToken)
+    {
+        var blobContainerClient = _blobServiceClient.GetBlobContainerClient(ContainerName);
+        var blobClient = blobContainerClient.GetBlobClient(blobName: BlobName);
+        
+        // Get blob properties for optimization
+        var properties = await blobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
+        ContentSize = properties.Value.ContentLength;
+        
+        // Use StringBuilder with pre-allocated capacity for optimal memory usage
+        var contentBuilder = new StringBuilder(capacity: (int)Math.Min(ContentSize, int.MaxValue));
+        
+        _logger.LogInformation(
+            "Starting server-side stream processing for blob {BlobName} ({ContentSize} bytes)",
+            BlobName, ContentSize);
+        
+        // Process stream using async enumerable for memory efficiency
+        await foreach (var chunk in _blobService.GetBlobChunksStreamAsync(ContainerName, BlobName, cancellationToken))
+        {
+            contentBuilder.Append(chunk);
+        }
+        
+        var result = contentBuilder.ToString();
+        
+        _logger.LogInformation(
+            "Completed server-side stream processing for blob {BlobName}. Final content length: {FinalLength} characters",
+            BlobName, result.Length);
+            
+        return result;
+    }
+
+    /// <summary>
+    /// Loads HTML content as a stream for view-level consumption
+    /// Best for: SEO-friendly rendering with memory efficiency
+    /// The view will consume the stream directly using C# code
+    /// </summary>
+    private async Task LoadHtmlContentStreamForView(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var blobContainerClient = _blobServiceClient.GetBlobContainerClient(ContainerName);
+            var blobClient = blobContainerClient.GetBlobClient(BlobName);
+            
+            // Get blob properties
+            var properties = await blobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
+            ContentSize = properties.Value.ContentLength;
+            
+            // Get the stream and assign it to the property
+            // The stream will be consumed in the view
+            var response = await blobClient.DownloadStreamingAsync(cancellationToken: cancellationToken);
+            HtmlContentStream = response.Value.Content;
+            
+            _logger.LogInformation(
+                "Prepared stream for view consumption: blob {BlobName} ({ContentSize} bytes)",
+                BlobName, ContentSize);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error preparing stream for view: {BlobName}", BlobName);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Helper method for the view to safely consume the HTML stream
+    /// This method ensures proper encoding and error handling
+    /// </summary>
+    public async Task<string> ReadStreamContentAsync()
+    {
+        if (HtmlContentStream == null)
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            // Reset stream position if needed
+            if (HtmlContentStream.CanSeek && HtmlContentStream.Position != 0)
+            {
+                HtmlContentStream.Seek(0, SeekOrigin.Begin);
+            }
+
+            using var reader = new StreamReader(HtmlContentStream, Encoding.UTF8, leaveOpen: true);
+            var content = await reader.ReadToEndAsync();
+            
+            _logger.LogInformation(
+                "Successfully read {ContentLength} characters from stream in view",
+                content.Length);
+                
+            return content;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error reading stream content in view");
+            return $"<div class='alert alert-danger'>Error reading stream content: {ex.Message}</div>";
+        }
+    }
+
+    /// <summary>
+    /// Helper method for the view to consume the HTML stream in chunks
+    /// This provides better memory efficiency for very large files
+    /// </summary>
+    public async IAsyncEnumerable<string> ReadStreamChunksAsync([System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        if (HtmlContentStream == null)
+        {
+            yield break;
+        }
+
+        StreamReader? reader = null;
+        try
+        {
+            // Reset stream position if needed
+            if (HtmlContentStream.CanSeek && HtmlContentStream.Position != 0)
+            {
+                HtmlContentStream.Seek(0, SeekOrigin.Begin);
+            }
+
+            reader = new StreamReader(HtmlContentStream, Encoding.UTF8, leaveOpen: true);
+            
+            var buffer = new char[8192]; // 8KB chunks
+            int bytesRead;
+            
+            while ((bytesRead = await reader.ReadAsync(buffer, 0, buffer.Length)) > 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                yield return new string(buffer, 0, bytesRead);
+            }
+            
+            _logger.LogInformation("Completed chunked stream reading in view");
+        }
+        finally
+        {
+            reader?.Dispose();
+        }
+    }
+
+    /// <summary>
     /// Action method to clear cache for the current blob
     /// </summary>
     public async Task<IActionResult> OnPostClearCacheAsync()
@@ -163,6 +437,26 @@ public class HtmlBlobModel : PageModel
             TempData["Error"] = "Error clearing cache.";
         }
 
-        return RedirectToPage(new { ContainerName, BlobName, UseCache, UseStreaming });
+        return RedirectToPage(new { ContainerName, BlobName, UseCache, UseStreaming, UseServerSideStreaming, UsePureStreaming, UseViewStreaming });
+    }
+
+    private bool _disposed = false;
+
+    /// <summary>
+    /// Dispose resources properly
+    /// </summary>
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposed && disposing)
+        {
+            HtmlContentStream?.Dispose();
+            _disposed = true;
+        }
     }
 }

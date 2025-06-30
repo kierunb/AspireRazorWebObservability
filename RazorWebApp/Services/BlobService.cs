@@ -110,6 +110,24 @@ public class BlobService
         return contentBuilder.ToString();
     }
 
+    /// <summary>
+    /// Gets blob content as a stream for direct streaming scenarios
+    /// Caller is responsible for disposing the returned stream
+    /// </summary>
+    public async Task<Stream> GetBlobStreamAsync(string containerName, string blobName, CancellationToken cancellationToken = default)
+    {
+        var blobContainerClient = _blobServiceClient.GetBlobContainerClient(containerName);
+        var blobClient = blobContainerClient.GetBlobClient(blobName);
+
+        _logger.LogInformation(
+            "Opening stream for blob {BlobName} in container {ContainerName}",
+            blobName,
+            containerName
+        );
+
+        return await blobClient.OpenReadAsync(cancellationToken: cancellationToken);
+    }
+
     // index starts from 0
     private string GetKey(string containerName, string blobName, int index = 0) =>
         $"{containerName}-{blobName}-{index}";
