@@ -14,8 +14,10 @@ namespace RazorWebApp.Pages;
 
 /// <summary>
 /// Efficient HTML blob viewer page with streaming, caching, and memory optimization
+/// Now uses POST requests instead of GET to avoid query string parameter issues
 /// </summary>
 [OutputCache(PolicyName = "Expire30")]
+[EnableRateLimiting("FixedWindow")]
 public class HtmlBlobModel : PageModel, IDisposable
 {
     private readonly ILogger<HtmlBlobModel> _logger;
@@ -37,26 +39,26 @@ public class HtmlBlobModel : PageModel, IDisposable
     public bool IsStreaming { get; private set; }
     public bool IsStreamingMode { get; private set; }
     
-    // Query parameters
-    [BindProperty(SupportsGet = true)]
+    // POST form data
+    [BindProperty]
     public string ContainerName { get; set; } = "web";
     
-    [BindProperty(SupportsGet = true)]
+    [BindProperty]
     public string BlobName { get; set; } = "500KB.html";
     
-    [BindProperty(SupportsGet = true)]
+    [BindProperty]
     public bool UseCache { get; set; } = true;
     
-    [BindProperty(SupportsGet = true)]
+    [BindProperty]
     public bool UseStreaming { get; set; } = false;
 
-    [BindProperty(SupportsGet = true)]
+    [BindProperty]
     public bool UsePureStreaming { get; set; } = false;
 
-    [BindProperty(SupportsGet = true)]
+    [BindProperty]
     public bool UseServerSideStreaming { get; set; } = false;
 
-    [BindProperty(SupportsGet = true)]
+    [BindProperty]
     public bool UseViewStreaming { get; set; } = false;
 
     public HtmlBlobModel(
@@ -74,23 +76,41 @@ public class HtmlBlobModel : PageModel, IDisposable
     }
 
     /// <summary>
-    /// Handles GET requests with optimized blob content loading
+    /// Handles GET requests - displays the form for selecting blob options
     /// </summary>
-    public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken = default)
+    public async Task<IActionResult> OnGetAsync()
+    {
+        // Initialize default values and return the form
+        _logger.LogInformation("Displaying HTML blob viewer form");
+        return Page();
+    }
+
+    /// <summary>
+    /// Handles POST requests for loading blob content with optimized streaming
+    /// Uses model validation and proper error handling for secure POST operations
+    /// </summary>
+    public async Task<IActionResult> OnPostLoadBlobAsync(CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
         
         try
         {
+            // Validate model state
+            if (!ModelState.IsValid)
+            {
+                ErrorMessage = "Invalid form data provided.";
+                return Page();
+            }
+
             // Validate input parameters
             if (!ValidateInputs())
             {
                 return Page();
             }
 
-            // Log the request
+            // Log the request (avoid logging sensitive information)
             _logger.LogInformation(
-                "Loading HTML blob {BlobName} from container {ContainerName}. UseCache: {UseCache}, UseStreaming: {UseStreaming}, UsePureStreaming: {UsePureStreaming}, UseServerSideStreaming: {UseServerSideStreaming}, UseViewStreaming: {UseViewStreaming}",
+                "POST request: Loading HTML blob {BlobName} from container {ContainerName}. UseCache: {UseCache}, UseStreaming: {UseStreaming}, UsePureStreaming: {UsePureStreaming}, UseServerSideStreaming: {UseServerSideStreaming}, UseViewStreaming: {UseViewStreaming}",
                 BlobName, ContainerName, UseCache, UseStreaming, UsePureStreaming, UseServerSideStreaming, UseViewStreaming);
 
             if (UsePureStreaming)
@@ -376,14 +396,14 @@ public class HtmlBlobModel : PageModel, IDisposable
             var content = await reader.ReadToEndAsync();
             
             _logger.LogInformation(
-                "Successfully read {ContentLength} characters from stream in view",
-                content.Length);
+                "Successfully read {ContentLength} characters from stream in view for blob {BlobName}",
+                content.Length, BlobName);
                 
             return content;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error reading stream content in view");
+            _logger.LogError(ex, "Error reading stream content in view for blob {BlobName}", BlobName);
             return $"<div class='alert alert-danger'>Error reading stream content: {ex.Message}</div>";
         }
     }
@@ -400,6 +420,7 @@ public class HtmlBlobModel : PageModel, IDisposable
         }
 
         StreamReader? reader = null;
+        
         try
         {
             // Reset stream position if needed
@@ -411,15 +432,25 @@ public class HtmlBlobModel : PageModel, IDisposable
             reader = new StreamReader(HtmlContentStream, Encoding.UTF8, leaveOpen: true);
             
             var buffer = new char[8192]; // 8KB chunks
-            int bytesRead;
-            
-            while ((bytesRead = await reader.ReadAsync(buffer, 0, buffer.Length)) > 0)
+            int charsRead;
+            int chunkIndex = 0;
+
+            while ((charsRead = await reader.ReadAsync(buffer, 0, buffer.Length)) > 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                yield return new string(buffer, 0, bytesRead);
+
+                var chunk = new string(buffer, 0, charsRead);
+
+                _logger.LogDebug(
+                    "Yielding chunk {ChunkIndex} ({CharsRead} chars) from blob {BlobName}",
+                    chunkIndex++, charsRead, BlobName);
+
+                yield return chunk;
             }
-            
-            _logger.LogInformation("Completed chunked stream reading in view");
+
+            _logger.LogInformation(
+                "Completed chunked stream reading in view for blob {BlobName}. Total chunks: {TotalChunks}",
+                BlobName, chunkIndex);
         }
         finally
         {
@@ -446,7 +477,7 @@ public class HtmlBlobModel : PageModel, IDisposable
             TempData["Error"] = "Error clearing cache.";
         }
 
-        return RedirectToPage(new { ContainerName, BlobName, UseCache, UseStreaming, UseServerSideStreaming, UsePureStreaming, UseViewStreaming });
+        return Page();
     }
 
     /// <summary>
