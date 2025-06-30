@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Checkbox Logic Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .checkbox-group { margin: 10px 0; }
+        .result { margin: 10px 0; padding: 10px; background: #f5f5f5; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e9; color: #2e7d32; }
+        input[type="checkbox"] { margin-right: 8px; }
+        button { padding: 8px 16px; margin: 5px; }
+        .form-check-input:disabled + .form-check-label {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <h1>HtmlBlob Page - Checkbox Logic Test</h1>
+    
+    <div class="test-section">
+        <h3>Checkbox State Testing</h3>
+        <div class="checkbox-group">
+            <label><input type="checkbox" id="useCache" class="form-check-input"> Use Cache</label><br>
+            <label><input type="checkbox" id="useStreaming" class="form-check-input"> Chunked Streaming</label><br>
+            <label><input type="checkbox" id="useServerSideStreaming" class="form-check-input"> Server Stream</label><br>
+            <label><input type="checkbox" id="useViewStreaming" class="form-check-input"> View Stream</label><br>
+            <label><input type="checkbox" id="usePureStreaming" class="form-check-input"> Pure Stream</label><br>
+        </div>
+        
+        <div>
+            <button onclick="testScenario('default')">Test Default</button>
+            <button onclick="testScenario('cache')">Test Cache Only</button>
+            <button onclick="testScenario('streaming')">Test Streaming</button>
+            <button onclick="testScenario('serverStream')">Test Server Stream</button>
+            <button onclick="testScenario('viewStream')">Test View Stream</button>
+            <button onclick="testScenario('pureStream')">Test Pure Stream</button>
+            <button onclick="resetAll()">Reset All</button>
+        </div>
+        
+        <div id="testResult" class="result" style="display: none;"></div>
+        <div id="infoPanel" style="margin-top: 10px;"></div>
+    </div>
+
+    <script>
+        // Copy the exact functions from HtmlBlob.cshtml
+        function handlePureStreamingChange() {
+            const pureStreamingCheckbox = document.getElementById('usePureStreaming');
+            const serverSideStreamingCheckbox = document.getElementById('useServerSideStreaming');
+            const viewStreamingCheckbox = document.getElementById('useViewStreaming');
+            const cacheCheckbox = document.getElementById('useCache');
+            const streamingCheckbox = document.getElementById('useStreaming');
+            
+            if (pureStreamingCheckbox.checked) {
+                // Pure streaming disables all other options
+                serverSideStreamingCheckbox.checked = false;
+                viewStreamingCheckbox.checked = false;
+                cacheCheckbox.checked = false;
+                streamingCheckbox.checked = false;
+                
+                serverSideStreamingCheckbox.disabled = true;
+                viewStreamingCheckbox.disabled = true;
+                cacheCheckbox.disabled = true;
+                streamingCheckbox.disabled = true;
+                
+                showResult('Pure Streaming Mode: All other options disabled', 'success');
+            } else {
+                serverSideStreamingCheckbox.disabled = false;
+                viewStreamingCheckbox.disabled = false;
+                cacheCheckbox.disabled = false;
+                streamingCheckbox.disabled = false;
+                clearInfoPanel();
+            }
+        }
+        
+        function handleServerSideStreamingChange() {
+            const serverSideStreamingCheckbox = document.getElementById('useServerSideStreaming');
+            const pureStreamingCheckbox = document.getElementById('usePureStreaming');
+            const streamingCheckbox = document.getElementById('useStreaming');
+            const viewStreamingCheckbox = document.getElementById('useViewStreaming');
+            
+            if (serverSideStreamingCheckbox.checked) {
+                // Server-side streaming disables other streaming options
+                pureStreamingCheckbox.checked = false;
+                streamingCheckbox.checked = false;
+                viewStreamingCheckbox.checked = false;
+                
+                showResult('Server-Side Streaming: SEO optimized, other streaming disabled', 'success');
+            } else {
+                clearInfoPanel();
+            }
+        }
+        
+        function handleViewStreamingChange() {
+            const viewStreamingCheckbox = document.getElementById('useViewStreaming');
+            const pureStreamingCheckbox = document.getElementById('usePureStreaming');
+            const serverSideStreamingCheckbox = document.getElementById('useServerSideStreaming');
+            const streamingCheckbox = document.getElementById('useStreaming');
+            
+            if (viewStreamingCheckbox.checked) {
+                // View streaming disables other streaming options
+                pureStreamingCheckbox.checked = false;
+                serverSideStreamingCheckbox.checked = false;
+                streamingCheckbox.checked = false;
+                
+                showResult('View Streaming: Advanced streaming with SEO compatibility', 'success');
+            } else {
+                clearInfoPanel();
+            }
+        }
+        
+        function handleStreamingChange() {
+            const streamingCheckbox = document.getElementById('useStreaming');
+            const pureStreamingCheckbox = document.getElementById('usePureStreaming');
+            const serverSideStreamingCheckbox = document.getElementById('useServerSideStreaming');
+            const viewStreamingCheckbox = document.getElementById('useViewStreaming');
+            
+            if (streamingCheckbox.checked) {
+                // Regular streaming disables advanced streaming options
+                pureStreamingCheckbox.checked = false;
+                serverSideStreamingCheckbox.checked = false;
+                viewStreamingCheckbox.checked = false;
+                
+                showResult('Chunked Streaming: Balanced approach for medium files', 'success');
+            } else {
+                clearInfoPanel();
+            }
+        }
+        
+        function initializeCheckboxStates() {
+            try {
+                // Check current state and initialize accordingly
+                const pureStreamingCheckbox = document.getElementById('usePureStreaming');
+                const serverSideStreamingCheckbox = document.getElementById('useServerSideStreaming');
+                const viewStreamingCheckbox = document.getElementById('useViewStreaming');
+                const streamingCheckbox = document.getElementById('useStreaming');
+                
+                // Handle pure streaming first (highest priority)
+                if (pureStreamingCheckbox && pureStreamingCheckbox.checked) {
+                    handlePureStreamingChange();
+                }
+                // Then handle server-side streaming
+                else if (serverSideStreamingCheckbox && serverSideStreamingCheckbox.checked) {
+                    handleServerSideStreamingChange();
+                }
+                // Then handle view streaming
+                else if (viewStreamingCheckbox && viewStreamingCheckbox.checked) {
+                    handleViewStreamingChange();
+                }
+                // Finally handle regular streaming
+                else if (streamingCheckbox && streamingCheckbox.checked) {
+                    handleStreamingChange();
+                }
+                
+                // Add event listeners for checkbox changes
+                if (pureStreamingCheckbox) {
+                    pureStreamingCheckbox.addEventListener('change', handlePureStreamingChange);
+                }
+                if (serverSideStreamingCheckbox) {
+                    serverSideStreamingCheckbox.addEventListener('change', handleServerSideStreamingChange);
+                }
+                if (viewStreamingCheckbox) {
+                    viewStreamingCheckbox.addEventListener('change', handleViewStreamingChange);
+                }
+                if (streamingCheckbox) {
+                    streamingCheckbox.addEventListener('change', handleStreamingChange);
+                }
+            } catch (error) {
+                showResult('Error initializing checkbox states: ' + error.message, 'error');
+            }
+        }
+        
+        function testScenario(scenario) {
+            resetAll();
+            
+            switch(scenario) {
+                case 'default':
+                    // No checkboxes selected
+                    showResult('Default Mode: Direct loading with no special options', 'success');
+                    break;
+                case 'cache':
+                    document.getElementById('useCache').checked = true;
+                    showResult('Cache Mode: Direct loading with caching enabled', 'success');
+                    break;
+                case 'streaming':
+                    document.getElementById('useStreaming').checked = true;
+                    handleStreamingChange();
+                    break;
+                case 'serverStream':
+                    document.getElementById('useServerSideStreaming').checked = true;
+                    handleServerSideStreamingChange();
+                    break;
+                case 'viewStream':
+                    document.getElementById('useViewStreaming').checked = true;
+                    handleViewStreamingChange();
+                    break;
+                case 'pureStream':
+                    document.getElementById('usePureStreaming').checked = true;
+                    handlePureStreamingChange();
+                    break;
+            }
+            
+            // Show current state
+            updateStateDisplay();
+        }
+        
+        function resetAll() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => {
+                cb.checked = false;
+                cb.disabled = false;
+            });
+            clearInfoPanel();
+        }
+        
+        function showResult(message, type) {
+            const result = document.getElementById('testResult');
+            result.textContent = message;
+            result.className = 'result ' + type;
+            result.style.display = 'block';
+        }
+        
+        function clearInfoPanel() {
+            document.getElementById('infoPanel').innerHTML = '';
+            document.getElementById('testResult').style.display = 'none';
+        }
+        
+        function updateStateDisplay() {
+            const states = [];
+            if (document.getElementById('useCache').checked) states.push('Cache');
+            if (document.getElementById('useStreaming').checked) states.push('Streaming');
+            if (document.getElementById('useServerSideStreaming').checked) states.push('ServerStream');
+            if (document.getElementById('useViewStreaming').checked) states.push('ViewStream');
+            if (document.getElementById('usePureStreaming').checked) states.push('PureStream');
+            
+            const infoPanel = document.getElementById('infoPanel');
+            infoPanel.innerHTML = `<strong>Current State:</strong> ${states.length > 0 ? states.join(', ') : 'Default'}`;
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCheckboxStates();
+            showResult('Page loaded successfully. Test different scenarios above.', 'success');
+        });
+    </script>
+</body>
+</html>

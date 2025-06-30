@@ -15,7 +15,7 @@ builder.Services.AddRazorPages();
 builder.Services.AddResponseCompression(options =>
 {
     options.EnableForHttps = true;
-    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[] { "text/html" });
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(["text/html"]);
 });
 
 // Rate Limiting for security (simplified for compatibility)
@@ -50,12 +50,12 @@ builder.Services.AddScoped<IHtmlSanitizer>(provider =>
     
     // Configure allowed tags for HTML content
     sanitizer.AllowedTags.Clear();
-    sanitizer.AllowedTags.UnionWith(new[] {
+    sanitizer.AllowedTags.UnionWith([
         "p", "div", "span", "h1", "h2", "h3", "h4", "h5", "h6",
         "strong", "em", "u", "b", "i", "br", "ul", "ol", "li", 
         "a", "img", "table", "thead", "tbody", "tr", "th", "td",
         "blockquote", "code", "pre"
-    });
+    ]);
     
     // Configure allowed attributes
     sanitizer.AllowedAttributes.Clear();
@@ -68,7 +68,7 @@ builder.Services.AddScoped<IHtmlSanitizer>(provider =>
     
     // Only allow safe URL schemes
     sanitizer.AllowedSchemes.Clear();
-    sanitizer.AllowedSchemes.UnionWith(new[] { "http", "https", "mailto" });
+    sanitizer.AllowedSchemes.UnionWith(["http", "https", "mailto"]);
     
     // Remove dangerous attributes
     sanitizer.RemovingAttribute += (sender, args) =>

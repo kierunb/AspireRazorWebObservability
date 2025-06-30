@@ -219,7 +219,7 @@
                     </div>
                     <div class="card-body">
                         <!-- View-Level Stream Content -->
-@*                         <div class="stream-content">
+                        <div class="stream-content">
                             @{
                                 try
                                 {
@@ -227,18 +227,17 @@
                                     var streamContent = await Model.GetSanitizedStreamContentAsync();
                                     @Html.Raw(streamContent)
                                 }
-                                catch (Exception)
+                                catch (Exception ex)
                                 {
                                     <div class="alert alert-danger">
-                                        <strong>Stream Error:</strong> Unable to load stream content safely.
+                                        <strong>Stream Error:</strong> Unable to load stream content safely. @ex.Message
                                     </div>
                                 }
                             }
-                        </div> *@
+                        </div>
                         
-                        <!-- Alternative: Chunked reading for very large files -->
-                        Uncomment this section to use chunked streaming instead:
-                        <div class="stream-content-chunked" style="display: none;">
+                        <!-- Alternative: Chunked reading for very large files (commented out by default) -->
+@*                         <div class="stream-content-chunked" style="display: none;">
                             @{
                                 try
                                 {
@@ -254,7 +253,7 @@
                                     </div>
                                 }
                             }
-                        </div>
+                        </div> *@
                        
                     </div>
                 </div>
@@ -631,7 +630,7 @@
             console.error('Error initializing checkbox states:', error);
         }
     }
-}
+</script>
 
 @functions {
     private string FormatBytes(long bytes)
