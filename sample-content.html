@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sample HTML Content for Blob Storage</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #4a5568;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .feature-card {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #4299e1;
+        }
+        .performance-metrics {
+            background: #e6fffa;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        code {
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        .highlight {
+            background: #fed7d7;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Efficient HTML Blob Viewer Demo</h1>
+        
+        <p>This HTML content is being served from <strong>Azure Blob Storage</strong> using an optimized, memory-efficient approach designed for scalability and performance.</p>
+        
+        <div class="performance-metrics">
+            <h3>🎯 Performance Features</h3>
+            <ul>
+                <li><strong>Memory Efficient:</strong> Uses streaming to minimize memory allocations</li>
+                <li><strong>GC Optimized:</strong> Pre-allocates StringBuilder capacity to reduce garbage collection</li>
+                <li><strong>Cached:</strong> Implements hybrid caching for frequently accessed content</li>
+                <li><strong>Resilient:</strong> Includes proper error handling and retry logic</li>
+            </ul>
+        </div>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h4>🔄 Streaming Support</h4>
+                <p>Large files are processed in chunks using <code>IAsyncEnumerable&lt;string&gt;</code> to avoid loading entire content into memory at once.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h4>💾 Smart Caching</h4>
+                <p>Uses ASP.NET Core's <code>HybridCache</code> with configurable expiration times and cache invalidation strategies.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h4>🛡️ Security First</h4>
+                <p>Implements proper input validation, error handling, and follows Azure security best practices with managed identity authentication.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h4>📊 Performance Monitoring</h4>
+                <p>Includes detailed logging and performance metrics to track processing time, content size, and cache effectiveness.</p>
+            </div>
+        </div>
+
+        <h3>🏗️ Architecture Benefits</h3>
+        <p>This implementation demonstrates several key architectural patterns:</p>
+        <ul>
+            <li><span class="highlight">Separation of Concerns:</span> Service layer handles blob operations, page model manages presentation logic</li>
+            <li><span class="highlight">Resource Management:</span> Proper disposal of streams and buffers</li>
+            <li><span class="highlight">Scalability:</span> Efficient memory usage patterns suitable for high-traffic scenarios</li>
+            <li><span class="highlight">Observability:</span> Comprehensive logging and metrics for monitoring</li>
+        </ul>
+
+        <h3>💡 Usage Scenarios</h3>
+        <p>This pattern is ideal for:</p>
+        <ul>
+            <li>Content management systems serving HTML from blob storage</li>
+            <li>Documentation portals with cached content</li>
+            <li>Marketing pages with dynamic content updates</li>
+            <li>Multi-tenant applications with tenant-specific content</li>
+        </ul>
+
+        <div style="text-align: center; margin-top: 30px; padding: 20px; background: #f0f9ff; border-radius: 8px;">
+            <p><em>This content was loaded efficiently from Azure Blob Storage! 🎉</em></p>
+            <p>Check the performance metrics above to see the optimization in action.</p>
+        </div>
+    </div>
+</body>
+</html>

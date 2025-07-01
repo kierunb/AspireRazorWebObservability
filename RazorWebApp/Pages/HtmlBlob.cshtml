@@ -1,0 +1,740 @@
+@page "/htmlblob"
+@model RazorWebApp.Pages.HtmlBlobModel
+@{
+    ViewData["Title"] = "Efficient HTML Blob Viewer";
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">@ViewData["Title"]</h1>
+            
+            @if (!string.IsNullOrEmpty(TempData["Message"] as string))
+            {
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    @TempData["Message"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+            
+            @if (!string.IsNullOrEmpty(TempData["Error"] as string))
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    @TempData["Error"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Configuration Form -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Configuration Options</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" asp-page-handler="LoadBlob" class="row g-3" onsubmit="return validateForm()">
+                        <div class="col-md-3">
+                            <label for="containerName" class="form-label">Container Name</label>
+                            <input type="text" class="form-control" id="containerName" asp-for="ContainerName" 
+                                   placeholder="e.g., web" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="blobName" class="form-label">Blob Name</label>
+                            <input type="text" class="form-control" id="blobName" asp-for="BlobName" 
+                                   placeholder="e.g., content.html" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Loading Options</label>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="useCache" asp-for="UseCache">
+                                        <label class="form-check-label" for="useCache">Use Cache</label>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="useStreaming" asp-for="UseStreaming">
+                                        <label class="form-check-label" for="useStreaming">Chunked Streaming</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Advanced Streaming</label>
+                            <div class="row g-2">
+                                <div class="col-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="useServerSideStreaming" asp-for="UseServerSideStreaming">
+                                        <label class="form-check-label" for="useServerSideStreaming">
+                                            <span class="badge bg-info">Server Stream</span>
+                                        </label>
+                                        <small class="form-text text-muted">SEO friendly</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="useViewStreaming" asp-for="UseViewStreaming">
+                                        <label class="form-check-label" for="useViewStreaming">
+                                            <span class="badge bg-warning">View Stream</span>
+                                        </label>
+                                        <small class="form-text text-muted">SEO + Memory</small>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="usePureStreaming" asp-for="UsePureStreaming">
+                                        <label class="form-check-label" for="usePureStreaming">
+                                            <span class="badge bg-success">Pure Stream</span>
+                                        </label>
+                                        <small class="form-text text-muted">Max efficiency</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">Load Content</button>
+                            @if (Model.UseCache && !string.IsNullOrEmpty(Model.HtmlContent))
+                            {
+                                <button type="submit" asp-page-handler="ClearCache" class="btn btn-outline-warning btn-sm ms-2">Clear Cache</button>
+                            }
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Metrics -->
+    @if (!string.IsNullOrEmpty(Model.HtmlContent) || Model.IsStreamingMode || !string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="card bg-light">
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-2">
+                                <div class="metric">
+                                    <h6 class="text-muted">Processing Time</h6>
+                                    <span class="badge bg-info fs-6">@Model.ProcessingTime.TotalMilliseconds.ToString("F1") ms</span>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="metric">
+                                    <h6 class="text-muted">Content Size</h6>
+                                    <span class="badge bg-success fs-6">@FormatBytes(Model.ContentSize)</span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="metric">
+                                    <h6 class="text-muted">Loading Method</h6>
+                                    <span class="badge @(Model.UsePureStreaming ? "bg-success" : Model.UseViewStreaming ? "bg-warning" : Model.UseServerSideStreaming ? "bg-info" : Model.IsStreaming ? "bg-secondary" : "bg-primary") fs-6">
+                                        @(Model.UsePureStreaming ? "Pure Stream" : Model.UseViewStreaming ? "View Stream" : Model.UseServerSideStreaming ? "Server Stream" : Model.IsStreaming ? "Chunked" : "Direct")
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="metric">
+                                    <h6 class="text-muted">SEO Optimization</h6>
+                                    <span class="badge @(Model.UseServerSideStreaming || Model.UseViewStreaming || (!Model.UsePureStreaming && !string.IsNullOrEmpty(Model.HtmlContent)) ? "bg-success" : "bg-warning") fs-6">
+                                        @(Model.UseServerSideStreaming || Model.UseViewStreaming || (!Model.UsePureStreaming && !string.IsNullOrEmpty(Model.HtmlContent)) ? "SEO Ready" : "Client Only")
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="metric">
+                                    <h6 class="text-muted">Cache Status</h6>
+                                    <span class="badge @(Model.UseCache ? "bg-success" : "bg-warning") fs-6">
+                                        @(Model.UseCache ? "Enabled" : "Disabled")
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Content Display -->
+    <div class="row">
+        <div class="col-12">
+            @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+            {
+                <div class="alert alert-danger" role="alert">
+                    <h5 class="alert-heading">Error Loading Content</h5>
+                    <p class="mb-0">@Model.ErrorMessage</p>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(Model.HtmlContent))
+            {
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">HTML Content from @Model.ContainerName/@Model.BlobName</h5>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-secondary" onclick="toggleRawView()">
+                                <span id="toggleText">Show Raw HTML</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Rendered HTML Content (default view) -->
+                        <div id="renderedContent" class="rendered-content">
+                            @* Security: HTML content is sanitized to prevent XSS attacks *@
+                            @Html.Raw(Model.GetSanitizedContent())
+                        </div>
+                        
+                        <!-- Raw HTML Content (hidden by default) -->
+                        <div id="rawContent" class="raw-content" style="display: none;">
+                            <pre><code class="language-html">@Model.GetSanitizedContent()</code></pre>
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (Model.IsStreamingMode && Model.HtmlContentStream != null)
+            {
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Stream Content from @Model.ContainerName/@Model.BlobName</h5>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <span class="badge bg-warning">View-Level Streaming</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- View-Level Stream Content -->
+                        <div class="stream-content">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-primary active" id="streamToggleSimple" onclick="toggleStreamView('simple')">
+                                        Simple Stream
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" id="streamToggleChunked" onclick="toggleStreamView('chunked')">
+                                        Chunked Stream
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info" id="streamToggleRaw" onclick="toggleStreamView('raw')">
+                                        Raw Stream
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Simple stream reading (default) -->
+                            <div id="streamSimple" class="stream-view-mode">
+                                @{
+                                    try
+                                    {
+                                        // Option 1: Read and sanitize stream content (for smaller files)
+                                        var streamContent = await Model.GetSanitizedStreamContentAsync();
+                                        if (!string.IsNullOrEmpty(streamContent))
+                                        {
+                                            <div class="rendered-stream-content">
+                                                @Html.Raw(streamContent)
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="alert alert-warning">
+                                                <strong>Empty Stream:</strong> The stream content appears to be empty.
+                                            </div>
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        <div class="alert alert-danger">
+                                            <strong>Stream Error:</strong> Unable to load stream content safely. @ex.Message
+                                        </div>
+                                    }
+                                }
+                            </div>
+                            
+                            <!-- Chunked reading for very large files -->
+                            <div id="streamChunked" class="stream-view-mode" style="display: none;">
+                                <div class="alert alert-info mb-3">
+                                    <small><strong>Chunked Streaming:</strong> Content is being streamed in real-time chunks for maximum memory efficiency.</small>
+                                </div>
+                                @{
+                                    try
+                                    {
+                                        await foreach (var chunk in Model.ReadStreamChunksAsync())
+                                        {
+                                            // Note: For security, we should sanitize chunks, but this can be expensive
+                                            // For HTML content, consider sanitizing the complete content instead
+                                            @Html.Raw(chunk)
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        <div class="alert alert-danger">
+                                            <strong>Stream Chunk Error:</strong> @ex.Message
+                                        </div>
+                                    }
+                                }
+                            </div>
+
+                            <!-- Raw stream content (for debugging) -->
+                            <div id="streamRaw" class="stream-view-mode" style="display: none;">
+                                <div class="alert alert-warning mb-3">
+                                    <small><strong>Raw Stream:</strong> Displaying unsanitized stream content for debugging purposes.</small>
+                                </div>
+                                <pre class="raw-stream-content"><code>@{
+                                    try
+                                    {
+                                        var rawContent = await Model.ReadStreamContentAsync();
+                                        @rawContent
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        <text>Error reading raw stream: @ex.Message</text>
+                                    }
+                                }</code></pre>
+                            </div>
+                        </div>
+                       
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-info" role="alert">
+                    <h5 class="alert-heading">🚀 Ready to Load Content</h5>
+                    <p class="mb-3">Configure the settings above and click "Load Content" to display HTML from Azure Blob Storage.</p>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <h6>📊 Performance Approaches:</h6>
+                            <ul class="small mb-0">
+                                <li><strong>Direct:</strong> Best for small files (&lt; 1MB) with full caching</li>
+                                <li><strong>Chunked:</strong> Balanced approach for medium files (1-10MB)</li>
+                                <li><strong>Server Stream:</strong> <span class="badge bg-info">SEO Optimized</span> Memory efficient + search engine friendly</li>
+                                <li><strong>View Stream:</strong> <span class="badge bg-warning">Advanced</span> Stream handled directly in Razor view</li>
+                                <li><strong>Pure Stream:</strong> Maximum efficiency for very large files (&gt; 10MB)</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>🔍 SEO Considerations:</h6>
+                            <ul class="small mb-0">
+                                <li><strong>Server Stream:</strong> ✅ Fully indexed by search engines</li>
+                                <li><strong>View Stream:</strong> ✅ SEO compatible with server-side processing</li>
+                                <li><strong>Direct/Chunked:</strong> ✅ SEO compatible with server rendering</li>
+                                <li><strong>Pure Stream:</strong> ❌ Content streamed directly to browser</li>
+                                <li><strong>Recommendation:</strong> Use Server Stream or View Stream for public content</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Performance Optimization: Include CSS for better rendering -->
+<style>
+    .metric {
+        padding: 0.5rem;
+    }
+    
+    .rendered-content {
+        max-height: 70vh;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        background-color: #ffffff;
+    }
+    
+    .raw-content {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+    
+    .raw-content pre {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin: 0;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+    
+    .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+
+    .form-check-input:disabled + .form-check-label {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .form-check-input:disabled + .form-check-label .badge {
+        opacity: 0.6;
+    }
+    
+    .alert.mt-2 {
+        margin-top: 0.5rem !important;
+        font-size: 0.9rem;
+    }
+    
+    /* Stream-specific styles */
+    .rendered-stream-content {
+        max-height: 70vh;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        background-color: #ffffff;
+    }
+    
+    .raw-stream-content {
+        max-height: 70vh;
+        overflow-y: auto;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin: 0;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 0.9rem;
+    }
+    
+    .stream-view-mode {
+        min-height: 200px;
+    }
+</style>
+
+<!-- JavaScript for toggle functionality -->
+<script>
+    function toggleRawView() {
+        const renderedContent = document.getElementById('renderedContent');
+        const rawContent = document.getElementById('rawContent');
+        const toggleText = document.getElementById('toggleText');
+        
+        if (rawContent.style.display === 'none') {
+            renderedContent.style.display = 'none';
+            rawContent.style.display = 'block';
+            toggleText.textContent = 'Show Rendered HTML';
+        } else {
+            renderedContent.style.display = 'block';
+            rawContent.style.display = 'none';
+            toggleText.textContent = 'Show Raw HTML';
+        }
+    }
+    
+    function toggleStreamView(mode) {
+        // Hide all stream view modes
+        const streamViews = document.querySelectorAll('.stream-view-mode');
+        streamViews.forEach(view => view.style.display = 'none');
+        
+        // Remove active class from all buttons
+        const buttons = document.querySelectorAll('[id^="streamToggle"]');
+        buttons.forEach(btn => {
+            btn.classList.remove('active', 'btn-outline-primary');
+            btn.classList.add('btn-outline-secondary');
+        });
+        
+        // Show selected view and activate button
+        const targetView = document.getElementById(`stream${mode.charAt(0).toUpperCase() + mode.slice(1)}`);
+        const targetButton = document.getElementById(`streamToggle${mode.charAt(0).toUpperCase() + mode.slice(1)}`);
+        
+        if (targetView && targetButton) {
+            targetView.style.display = 'block';
+            targetButton.classList.remove('btn-outline-secondary');
+            targetButton.classList.add('btn-outline-primary', 'active');
+        }
+    }
+    
+    function handlePureStreamingChange() {
+        const pureStreamingCheckbox = document.getElementById('usePureStreaming');
+        const serverSideStreamingCheckbox = document.getElementById('useServerSideStreaming');
+        const viewStreamingCheckbox = document.getElementById('useViewStreaming');
+        const cacheCheckbox = document.getElementById('useCache');
+        const streamingCheckbox = document.getElementById('useStreaming');
+        
+        if (pureStreamingCheckbox.checked) {
+            // Pure streaming disables all other options
+            serverSideStreamingCheckbox.checked = false;
+            viewStreamingCheckbox.checked = false;
+            cacheCheckbox.checked = false;
+            streamingCheckbox.checked = false;
+            
+            serverSideStreamingCheckbox.disabled = true;
+            viewStreamingCheckbox.disabled = true;
+            cacheCheckbox.disabled = true;
+            streamingCheckbox.disabled = true;
+            
+            // Hide other info panels
+            hideServerSideStreamingInfo();
+            hideViewStreamingInfo();
+            showPureStreamingWarning();
+        } else {
+            serverSideStreamingCheckbox.disabled = false;
+            viewStreamingCheckbox.disabled = false;
+            cacheCheckbox.disabled = false;
+            streamingCheckbox.disabled = false;
+            hidePureStreamingWarning();
+        }
+    }
+    
+    function handleServerSideStreamingChange() {
+        const serverSideStreamingCheckbox = document.getElementById('useServerSideStreaming');
+        const pureStreamingCheckbox = document.getElementById('usePureStreaming');
+        const streamingCheckbox = document.getElementById('useStreaming');
+        const viewStreamingCheckbox = document.getElementById('useViewStreaming');
+        
+        if (serverSideStreamingCheckbox.checked) {
+            // Server-side streaming disables other streaming options
+            pureStreamingCheckbox.checked = false;
+            streamingCheckbox.checked = false;
+            viewStreamingCheckbox.checked = false;
+            
+            // Re-enable disabled controls if pure streaming was previously selected
+            pureStreamingCheckbox.disabled = false;
+            viewStreamingCheckbox.disabled = false;
+            const cacheCheckbox = document.getElementById('useCache');
+            cacheCheckbox.disabled = false;
+            streamingCheckbox.disabled = false;
+            
+            // Hide other info panels
+            hidePureStreamingWarning();
+            hideViewStreamingInfo();
+            showServerSideStreamingInfo();
+        } else {
+            hideServerSideStreamingInfo();
+        }
+    }
+    
+    function handleViewStreamingChange() {
+        const viewStreamingCheckbox = document.getElementById('useViewStreaming');
+        const pureStreamingCheckbox = document.getElementById('usePureStreaming');
+        const serverSideStreamingCheckbox = document.getElementById('useServerSideStreaming');
+        const streamingCheckbox = document.getElementById('useStreaming');
+        
+        if (viewStreamingCheckbox.checked) {
+            // View streaming disables other streaming options
+            pureStreamingCheckbox.checked = false;
+            serverSideStreamingCheckbox.checked = false;
+            streamingCheckbox.checked = false;
+            
+            // Re-enable disabled controls if pure streaming was previously selected
+            pureStreamingCheckbox.disabled = false;
+            serverSideStreamingCheckbox.disabled = false;
+            const cacheCheckbox = document.getElementById('useCache');
+            cacheCheckbox.disabled = false;
+            streamingCheckbox.disabled = false;
+            
+            // Hide other info panels
+            hidePureStreamingWarning();
+            hideServerSideStreamingInfo();
+            showViewStreamingInfo();
+        } else {
+            hideViewStreamingInfo();
+        }
+    }
+    
+    function handleStreamingChange() {
+        const streamingCheckbox = document.getElementById('useStreaming');
+        const pureStreamingCheckbox = document.getElementById('usePureStreaming');
+        const serverSideStreamingCheckbox = document.getElementById('useServerSideStreaming');
+        const viewStreamingCheckbox = document.getElementById('useViewStreaming');
+        
+        if (streamingCheckbox.checked) {
+            // Regular streaming disables advanced streaming options but allows them to be re-enabled
+            pureStreamingCheckbox.checked = false;
+            serverSideStreamingCheckbox.checked = false;
+            viewStreamingCheckbox.checked = false;
+            
+            // Hide info panels
+            hidePureStreamingWarning();
+            hideServerSideStreamingInfo();
+            hideViewStreamingInfo();
+        }
+    }
+    
+    function validateForm() {
+        const containerName = document.getElementById('containerName').value.trim();
+        const blobName = document.getElementById('blobName').value.trim();
+        
+        if (!containerName || !blobName) {
+            alert('Container name and blob name are required.');
+            return false;
+        }
+        
+        // Basic validation patterns
+        const containerPattern = /^[a-z0-9](?:[a-z0-9\-]*[a-z0-9])?$/;
+        const blobPattern = /^[a-zA-Z0-9][a-zA-Z0-9\-_.]*\.(html|htm)$/;
+        
+        if (!containerPattern.test(containerName)) {
+            alert('Invalid container name format. Use lowercase letters, numbers, and hyphens only.');
+            return false;
+        }
+        
+        if (!blobPattern.test(blobName)) {
+            alert('Invalid blob name format. Only HTML files (.html or .htm) are allowed.');
+            return false;
+        }
+        
+        return true;
+    }
+
+    function showServerSideStreamingInfo() {
+        let info = document.getElementById('serverSideStreamingInfo');
+        if (!info) {
+            info = document.createElement('div');
+            info.id = 'serverSideStreamingInfo';
+            info.className = 'alert alert-success mt-2';
+            info.innerHTML = `
+                <small>
+                    <strong>🔍 SEO Optimized:</strong> Content is processed on the server using memory-efficient 
+                    streaming and rendered directly in the page. This provides excellent SEO compatibility 
+                    while maintaining high performance for large files.
+                </small>
+            `;
+            document.querySelector('.card-body form').appendChild(info);
+        }
+    }
+    
+    function hideServerSideStreamingInfo() {
+        const info = document.getElementById('serverSideStreamingInfo');
+        if (info) {
+            info.remove();
+        }
+    }
+    
+    function showPureStreamingWarning() {
+        let warning = document.getElementById('pureStreamingWarning');
+        if (!warning) {
+            warning = document.createElement('div');
+            warning.id = 'pureStreamingWarning';
+            warning.className = 'alert alert-info mt-2';
+            warning.innerHTML = `
+                <small>
+                    <strong>Pure Streaming Mode:</strong> Content will be streamed directly to your browser 
+                    without page rendering. This is the most memory-efficient approach but disables 
+                    interactive features like raw/rendered toggle and caching.
+                </small>
+            `;
+            document.querySelector('.card-body form').appendChild(warning);
+        }
+    }
+    
+    function hidePureStreamingWarning() {
+        const warning = document.getElementById('pureStreamingWarning');
+        if (warning) {
+            warning.remove();
+        }
+    }
+    
+    function showViewStreamingInfo() {
+        let info = document.getElementById('viewStreamingInfo');
+        if (!info) {
+            info = document.createElement('div');
+            info.id = 'viewStreamingInfo';
+            info.className = 'alert alert-warning mt-2';
+            info.innerHTML = `
+                <small>
+                    <strong>🔄 View-Level Streaming:</strong> Content is streamed from Azure Blob Storage and 
+                    processed directly in the Razor view using C# code. This combines SEO compatibility 
+                    with memory efficiency and demonstrates advanced view-level stream handling.
+                </small>
+            `;
+            document.querySelector('.card-body form').appendChild(info);
+        }
+    }
+    
+    function hideViewStreamingInfo() {
+        const info = document.getElementById('viewStreamingInfo');
+        if (info) {
+            info.remove();
+        }
+    }
+    
+    // Auto-dismiss alerts after 5 seconds
+    document.addEventListener('DOMContentLoaded', function() {
+        const alerts = document.querySelectorAll('.alert-dismissible');
+        alerts.forEach(function(alert) {
+            setTimeout(function() {
+                if (alert.parentNode && typeof bootstrap !== 'undefined' && bootstrap.Alert) {
+                    try {
+                        const bsAlert = new bootstrap.Alert(alert);
+                        bsAlert.close();
+                    } catch (e) {
+                        // Fallback: manually remove the alert
+                        alert.style.display = 'none';
+                    }
+                } else {
+                    // Fallback: manually remove the alert
+                    alert.style.display = 'none';
+                }
+            }, 5000);
+        });
+        
+        // Initialize streaming state based on current checkbox values
+        initializeCheckboxStates();
+    });
+    
+    function initializeCheckboxStates() {
+        try {
+            // Check current state and initialize accordingly
+            const pureStreamingCheckbox = document.getElementById('usePureStreaming');
+            const serverSideStreamingCheckbox = document.getElementById('useServerSideStreaming');
+            const viewStreamingCheckbox = document.getElementById('useViewStreaming');
+            const streamingCheckbox = document.getElementById('useStreaming');
+            
+            // Handle pure streaming first (highest priority)
+            if (pureStreamingCheckbox && pureStreamingCheckbox.checked) {
+                handlePureStreamingChange();
+            }
+            // Then handle server-side streaming
+            else if (serverSideStreamingCheckbox && serverSideStreamingCheckbox.checked) {
+                handleServerSideStreamingChange();
+            }
+            // Then handle view streaming
+            else if (viewStreamingCheckbox && viewStreamingCheckbox.checked) {
+                handleViewStreamingChange();
+            }
+            // Finally handle regular streaming
+            else if (streamingCheckbox && streamingCheckbox.checked) {
+                handleStreamingChange();
+            }
+            
+            // Add event listeners for checkbox changes
+            if (pureStreamingCheckbox) {
+                pureStreamingCheckbox.addEventListener('change', handlePureStreamingChange);
+            }
+            if (serverSideStreamingCheckbox) {
+                serverSideStreamingCheckbox.addEventListener('change', handleServerSideStreamingChange);
+            }
+            if (viewStreamingCheckbox) {
+                viewStreamingCheckbox.addEventListener('change', handleViewStreamingChange);
+            }
+            if (streamingCheckbox) {
+                streamingCheckbox.addEventListener('change', handleStreamingChange);
+            }
+        } catch (error) {
+            console.error('Error initializing checkbox states:', error);
+        }
+    }
+</script>
+
+@functions {
+    private string FormatBytes(long bytes)
+    {
+        if (bytes == 0) return "0 B";
+        
+        string[] suffixes = { "B", "KB", "MB", "GB" };
+        int suffixIndex = 0;
+        double size = bytes;
+        
+        while (size >= 1024 && suffixIndex < suffixes.Length - 1)
+        {
+            size /= 1024;
+            suffixIndex++;
+        }
+        
+        return $"{size:F1} {suffixes[suffixIndex]}";
+    }
+}

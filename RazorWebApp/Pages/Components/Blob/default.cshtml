@@ -1,0 +1,9 @@
+﻿@model string[]
+<h3>Blob component</h3>
+
+<div>
+    @for (int i = 0; i < Model.Length; i++)
+    {
+        @Html.Raw(Model[i])
+    }
+</div>

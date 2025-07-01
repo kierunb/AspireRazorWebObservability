@@ -1,0 +1,24 @@
+﻿@page
+@model RazorWebApp.Pages.BlobViewComponentModel
+
+
+@{
+    ViewData["Title"] = "Blob ViewComponent Demo";
+}
+<h1>@ViewData["Title"]</h1>
+
+<hr />
+
+<div>
+
+    @* @await Component.InvokeAsync("Blob", new { containerName = "web", blobName = "html-part.html" }) *@
+    
+
+    <cache expires-after="@TimeSpan.FromSeconds(10)">
+        @DateTime.Now
+        <hr />
+        
+    </cache>
+
+    @await Component.InvokeAsync("Blob", new { containerName = "web", blobName = "500KB.html" })
+</div>

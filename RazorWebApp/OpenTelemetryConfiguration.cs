@@ -12,12 +12,14 @@ public static class OpenTelemetryConfiguration
     public static void UseOpenTelemetry(
         this WebApplicationBuilder builder,
         bool enableAzureMonitor = false,
-        bool enableAspireDashboard = false
+        bool enableAspireDashboard = false,
+        bool enablePrometheus = false
     )
     {
         var serviceName = builder.Configuration["OpenTelemetry:ServiceName"]!;
         var serviceVersion = builder.Configuration["OpenTelemetry:ServiceVersion"]!;
         var aspireOltpEndpoint = builder.Configuration["OpenTelemetry:AspireOtlpEndpoint"]!;
+        var prometheusOltpEndpoint = builder.Configuration["OpenTelemetry:PrometheusOtlpEndpoint"]!;
 
         var resourceAttributes = new Dictionary<string, object>
         {
@@ -78,6 +80,15 @@ public static class OpenTelemetryConfiguration
             builder
                 .Services.AddOpenTelemetry()
                 .UseOtlpExporter(OtlpExportProtocol.Grpc, new Uri(aspireOltpEndpoint)); // Aspire dashboard
+        }
+
+        // prometheus --web.enable-otlp-receiver
+        if (enablePrometheus)
+        {
+            // jaeger, aspire dashboard standalone, otel collector etc.
+            builder
+                .Services.AddOpenTelemetry()
+                .UseOtlpExporter(OtlpExportProtocol.HttpProtobuf, new Uri(prometheusOltpEndpoint)); 
         }
     }
 }
